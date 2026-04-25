@@ -30,6 +30,13 @@ export default function ChatBot({ context, pillars }: ChatBotProps) {
   const [isLoading, setIsLoading] = React.useState(false);
   const scrollRef = React.useRef<HTMLDivElement>(null);
 
+  const SUGGESTIONS = [
+    "วิเคราะห์ภาพรวมและแนะนำ",
+    "หนี้สินของฉันเยอะไปไหม?",
+    "เงินสำรองฉุกเฉินเพียงพอหรือยัง?",
+    "ต้องออมเดือนละเท่าไหร่ให้ถึงเป้าหมาย?"
+  ];
+
   React.useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -48,6 +55,15 @@ export default function ChatBot({ context, pillars }: ChatBotProps) {
     
     setMessages(prev => [...prev, { role: 'assistant', text: advice }]);
     setIsLoading(false);
+  };
+
+  const handleSuggestion = (text: string) => {
+    setInput(text);
+    // Auto-send if needed, but better to just set input or use a separate fast-track function
+    setTimeout(() => {
+      const btn = document.getElementById('chat-send-btn');
+      btn?.click();
+    }, 10);
   };
 
   return (
@@ -107,6 +123,24 @@ export default function ChatBot({ context, pillars }: ChatBotProps) {
         </AnimatePresence>
       </div>
 
+      {/* Suggested Prompts */}
+      {!isLoading && messages.length < 5 && (
+        <div className="flex flex-wrap gap-2 mb-4">
+          {SUGGESTIONS.map((text, i) => (
+            <motion.button
+              key={i}
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.1 * i }}
+              onClick={() => handleSuggestion(text)}
+              className="text-[11px] font-bold py-1.5 px-3 rounded-full bg-blue-50 text-blue-700 border border-blue-100 hover:bg-blue-600 hover:text-white hover:border-blue-600 transition-all shadow-sm"
+            >
+              {text}
+            </motion.button>
+          ))}
+        </div>
+      )}
+
       {/* Input */}
       <div className="pt-4 border-t border-brand-border mt-auto">
         <div className="relative group">
@@ -119,6 +153,7 @@ export default function ChatBot({ context, pillars }: ChatBotProps) {
             className="w-full bg-brand-bg border-none rounded-lg p-3 pr-10 text-[13px] font-medium text-brand-text focus:ring-2 focus:ring-blue-500/20 transition-all placeholder:text-brand-secondary"
           />
           <button
+            id="chat-send-btn"
             onClick={handleSend}
             disabled={!input.trim() || isLoading}
             className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-md hover:bg-brand-border transition-colors text-brand-secondary hover:text-blue-600 disabled:opacity-0"
