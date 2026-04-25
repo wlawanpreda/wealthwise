@@ -1,0 +1,72 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Phase 3: Primitives
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function verified() {
+      return request.auth.token.email_verified == true;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // 1. Validation Blueprints
+    function isValidBudgetAllocation(data) {
+      return data.keys().hasAll(['id', 'name', 'amount', 'category'])
+        && data.id is string && data.id.size() <= 64
+        && data.name is string && data.name.size() <= 100
+        && data.amount is number && data.amount >= 0
+        && data.category in ['Constant', 'Spending', 'Reserve'];
+    }
+
+    function isValidLiability(data) {
+      return data.keys().hasAll(['id', 'name', 'totalAmount', 'monthlyPayment'])
+        && data.id is string && data.id.size() <= 64
+        && data.name is string && data.name.size() <= 100
+        && data.totalAmount is number && data.totalAmount >= 0
+        && data.monthlyPayment is number && data.monthlyPayment >= 0
+        && (!('dueDate' in data.keys()) || (data.dueDate is string && data.dueDate.size() <= 50));
+    }
+
+    function isValidEmergencyFund(data) {
+      return data.keys().hasAll(['id', 'bankName', 'amount', 'purpose'])
+        && data.id is string && data.id.size() <= 64
+        && data.bankName is string && data.bankName.size() <= 100
+        && data.amount is number && data.amount >= 0
+        && data.purpose is string && data.purpose.size() <= 200;
+    }
+
+    function isValidFinancialPlan(data) {
+      return data.keys().hasAll(['income', 'allocations', 'liabilities', 'emergencyFunds'])
+        && data.income is number && data.income >= 0
+        && data.allocations is list && data.allocations.size() <= 50
+        && data.liabilities is list && data.liabilities.size() <= 20
+        && data.emergencyFunds is list && data.emergencyFunds.size() <= 10;
+        // Due to Firestore rules limitations, we cannot iterate over lists to validate every element.
+        // We rely on the app to send correct objects and the overall structure being small.
+    }
+
+    // 8 Pillars: Relational Sync & Secure List Queries
+    match /users/{userId} {
+      match /plan/current {
+        allow get: if isOwner(userId);
+        allow create, update: if isOwner(userId) && verified() && isValidFinancialPlan(request.resource.data);
+        allow delete: if isOwner(userId);
+      }
+    }
+  }
+}

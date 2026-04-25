@@ -1,0 +1,68 @@
+{
+  "entities": {
+    "BudgetAllocation": {
+      "title": "Budget Allocation",
+      "description": "Allocation of income to a specific category",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "amount": { "type": "number" },
+        "category": { "type": "string", "enum": ["Constant", "Spending", "Reserve"] }
+      },
+      "required": ["id", "name", "amount", "category"]
+    },
+    "Liability": {
+      "title": "Liability",
+      "description": "A debt or financial obligation",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "totalAmount": { "type": "number" },
+        "monthlyPayment": { "type": "number" },
+        "dueDate": { "type": "string" }
+      },
+      "required": ["id", "name", "totalAmount", "monthlyPayment"]
+    },
+    "EmergencyFund": {
+      "title": "Emergency Fund",
+      "description": "Liquidity reserve in a bank",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "bankName": { "type": "string" },
+        "amount": { "type": "number" },
+        "purpose": { "type": "string" }
+      },
+      "required": ["id", "bankName", "amount", "purpose"]
+    },
+    "FinancialPlan": {
+      "title": "Financial Plan",
+      "description": "A user's complete financial state",
+      "type": "object",
+      "properties": {
+        "income": { "type": "number" },
+        "allocations": { 
+          "type": "array",
+          "items": { "$ref": "#/entities/BudgetAllocation" }
+        },
+        "liabilities": { 
+          "type": "array",
+          "items": { "$ref": "#/entities/Liability" }
+        },
+        "emergencyFunds": { 
+          "type": "array",
+          "items": { "$ref": "#/entities/EmergencyFund" }
+        }
+      },
+      "required": ["income", "allocations", "liabilities", "emergencyFunds"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}/plan/current": {
+      "schema": "FinancialPlan",
+      "description": "The current financial plan for the user"
+    }
+  }
+}
