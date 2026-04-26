@@ -1,7 +1,7 @@
 import React from 'react';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
-import { Plus, Trash2, Shield, CreditCard, Wallet, TrendingUp, PiggyBank, ArrowUpDown, ChevronUp, ChevronDown, AlertTriangle, History, PlusCircle, ArrowUpRight, ArrowDownLeft } from 'lucide-react';
-import { BudgetAllocation, Liability, FinancialAccount, CSRCategory } from '../types';
+import { Plus, Trash2, Shield, CreditCard, Wallet, TrendingUp, PiggyBank, ArrowUpDown, ChevronUp, ChevronDown, AlertTriangle, History, PlusCircle, ArrowUpRight, ArrowDownLeft, RefreshCw, ExternalLink } from 'lucide-react';
+import { BudgetAllocation, Liability, FinancialAccount, CSRCategory, IncomeProjection } from '../types';
 import { formatCurrency, cn } from '../lib/utils';
 
 interface FinancialPlannerProps {
@@ -15,6 +15,10 @@ interface FinancialPlannerProps {
   setLiabilities: React.Dispatch<React.SetStateAction<Liability[]>>;
   accounts: FinancialAccount[];
   setAccounts: React.Dispatch<React.SetStateAction<FinancialAccount[]>>;
+  projections: IncomeProjection[];
+  setProjections: React.Dispatch<React.SetStateAction<IncomeProjection[]>>;
+  isExternalSyncing?: boolean;
+  onSyncExternal?: () => void;
 }
 
 type SortKey = 'name' | 'totalAmount' | 'monthlyPayment' | 'dueDate';
@@ -35,7 +39,10 @@ export default function FinancialPlanner({
   savingsTarget, setSavingsTarget,
   allocations, setAllocations,
   liabilities, setLiabilities,
-  accounts, setAccounts
+  accounts, setAccounts,
+  projections, setProjections,
+  isExternalSyncing,
+  onSyncExternal
 }: FinancialPlannerProps) {
   const [sortKey, setSortKey] = React.useState<SortKey>('dueDate');
   const [sortOrder, setSortOrder] = React.useState<SortOrder>('asc');
@@ -136,6 +143,16 @@ export default function FinancialPlanner({
     }]);
   };
 
+  const addProjection = () => {
+    setProjections(prev => [...prev, {
+      id: crypto.randomUUID(),
+      name: '',
+      monthlyAmountChange: 0,
+      startDate: new Date().toISOString().slice(0, 7), // Default current month
+      type: 'increase'
+    }]);
+  };
+
   return (
     <div className="flex flex-col gap-10 animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-6xl mx-auto w-full pb-20">
       
@@ -186,17 +203,27 @@ export default function FinancialPlanner({
           </div>
         </div>
 
-        <div className="bg-brand-surface p-5 rounded-2xl border border-brand-border flex items-center gap-6">
-           <div className="text-center flex-1">
-             <p className="text-[10px] font-bold text-brand-muted uppercase tracking-widest mb-1">ความมั่งคั่งปัจจุบัน</p>
-             <p className="text-2xl font-black text-brand-text">
-               {formatCurrency(accounts.reduce((s,a) => s+a.amount, 0) + allocations.filter(a => a.category === CSRCategory.RESERVE).reduce((s,a) => s+a.amount, 0))}
+        <div className="bg-brand-surface p-6 rounded-2xl border border-brand-border flex items-center justify-between gap-4">
+           <div className="text-center flex-1 min-w-0">
+             <p className="text-[9px] font-black text-brand-muted uppercase tracking-widest mb-1 truncate">ทรัพย์สินรวม (Wealth)</p>
+             <p className="text-xl font-black text-brand-text truncate">
+               {formatCurrency(accounts.reduce((s, a) => s + a.amount, 0))}
              </p>
            </div>
-           <div className="w-px h-10 bg-brand-border" />
-           <div className="text-center flex-1">
-             <p className="text-[10px] font-bold text-brand-muted uppercase tracking-widest mb-1">อัตราการออม</p>
-             <p className="text-2xl font-black text-blue-600">
+           <div className="w-px h-10 bg-brand-border shrink-0" />
+           <div className="text-center flex-1 min-w-0">
+             <p className="text-[9px] font-black text-brand-muted uppercase tracking-widest mb-1 truncate">ความมั่งคั่งสุทธิ (Net Worth)</p>
+             <p className={cn(
+               "text-xl font-black whitespace-nowrap truncate", 
+               (accounts.reduce((s, a) => s + a.amount, 0) - liabilities.reduce((s, l) => s + l.totalAmount, 0)) >= 0 ? "text-emerald-600" : "text-red-600"
+             )}>
+               {formatCurrency(accounts.reduce((s, a) => s + a.amount, 0) - liabilities.reduce((s, l) => s + l.totalAmount, 0))}
+             </p>
+           </div>
+           <div className="w-px h-10 bg-brand-border shrink-0" />
+           <div className="text-center flex-1 min-w-0">
+             <p className="text-[9px] font-black text-brand-muted uppercase tracking-widest mb-1 truncate">อัตราออม</p>
+             <p className="text-xl font-black text-blue-600 truncate">
                {((allocations.filter(a => a.category === CSRCategory.RESERVE).reduce((s,a) => s+a.amount, 0) / (income || 1)) * 100).toFixed(1)}%
              </p>
            </div>
@@ -509,12 +536,27 @@ export default function FinancialPlanner({
               <p className="text-xs text-brand-muted">จัดการบัญชีเงินฝาก การลงทุน และทรัพย์สินทอดยาว</p>
             </div>
           </div>
-          <button 
-            onClick={addAccount} 
-            className="flex items-center gap-2 px-4 py-2 bg-brand-text text-white rounded-xl text-xs font-bold hover:bg-slate-800 transition-all shadow-sm"
-          >
-            <Plus size={14} /> เพิ่มบัญชี/ทรัพย์สิน
-          </button>
+          <div className="flex items-center gap-2">
+            {onSyncExternal && (
+              <button 
+                onClick={onSyncExternal}
+                disabled={isExternalSyncing}
+                className={cn(
+                  "flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all border border-indigo-200",
+                  isExternalSyncing ? "bg-indigo-50 text-indigo-400" : "bg-white text-indigo-600 hover:bg-indigo-50"
+                )}
+              >
+                <RefreshCw size={14} className={cn(isExternalSyncing && "animate-spin")} />
+                {isExternalSyncing ? "กำลังซิงค์..." : "ซิงค์จากระบบภายนอก"}
+              </button>
+            )}
+            <button 
+              onClick={addAccount} 
+              className="flex items-center gap-2 px-4 py-2 bg-brand-text text-white rounded-xl text-xs font-bold hover:bg-slate-800 transition-all shadow-sm"
+            >
+              <Plus size={14} /> เพิ่มบัญชี/ทรัพย์สิน
+            </button>
+          </div>
         </div>
         
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -676,6 +718,102 @@ export default function FinancialPlanner({
                 <p className="text-xs font-bold text-brand-muted uppercase tracking-widest">ยังไม่มีรายการบัญชี</p>
              </div>
           )}
+        </div>
+      </section>
+
+      {/* Income Projections Forecast */}
+      <section className="flex flex-col gap-4">
+        <div className="flex items-center justify-between px-2">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-emerald-50 rounded-lg">
+              <TrendingUp className="text-emerald-600 w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold">คาดการณ์รายได้ในอนาคต (Income Projection)</h2>
+              <p className="text-xs text-brand-muted">ระบุการเปลี่ยนแปลงรายได้ที่คาดว่าจะเกิดขึ้น (เช่น เลื่อนตำแหน่ง, งานเสริม)</p>
+            </div>
+          </div>
+          <button 
+            onClick={addProjection} 
+            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold hover:bg-emerald-700 transition-all shadow-sm"
+          >
+            <Plus size={14} /> เพิ่มการคาดการณ์
+          </button>
+        </div>
+
+        <div className="bg-white rounded-3xl border border-brand-border shadow-sm overflow-hidden">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-6">
+            {projections.map(proj => (
+              <div key={proj.id} className="relative group bg-brand-surface p-5 rounded-2xl border border-brand-border hover:border-emerald-200 transition-all">
+                <button 
+                  onClick={() => setProjections(prev => prev.filter(p => p.id !== proj.id))}
+                  className="absolute top-4 right-4 text-brand-muted hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  <Trash2 size={14} />
+                </button>
+                
+                <div className="flex flex-col gap-4">
+                  <div>
+                    <label className="text-[10px] font-black text-brand-muted uppercase tracking-widest mb-1 block">ชื่อรายการ</label>
+                    <input 
+                      type="text" 
+                      value={proj.name}
+                      onChange={(e) => setProjections(prev => prev.map(p => p.id === proj.id ? { ...p, name: e.target.value } : p))}
+                      className="w-full bg-white border border-brand-border rounded-xl px-3 py-2 text-xs font-bold outline-none"
+                      placeholder="เช่น เลื่อนตำแหน่ง"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[10px] font-black text-brand-muted uppercase tracking-widest mb-1 block">มูลค่าการเปลี่ยนเเปลง</label>
+                      <input 
+                        type="number" 
+                        value={proj.monthlyAmountChange || ''}
+                        onChange={(e) => setProjections(prev => prev.map(p => p.id === proj.id ? { ...p, monthlyAmountChange: Number(e.target.value) } : p))}
+                        className="w-full bg-white border border-brand-border rounded-xl px-3 py-2 text-xs font-bold outline-none"
+                        placeholder="0"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-black text-brand-muted uppercase tracking-widest mb-1 block">ประเภท</label>
+                      <select 
+                        value={proj.type}
+                        onChange={(e) => setProjections(prev => prev.map(p => p.id === proj.id ? { ...p, type: e.target.value as any } : p))}
+                        className="w-full bg-white border border-brand-border rounded-xl px-2 py-2 text-[10px] font-bold outline-none"
+                      >
+                        <option value="increase">รายได้เพิ่มขึ้น (+)</option>
+                        <option value="decrease">รายข่ายเพิ่ม/รายได้ลด (-)</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-black text-brand-muted uppercase tracking-widest mb-1 block">เริ่มตั้งแต่เดือน</label>
+                    <input 
+                      type="month" 
+                      value={proj.startDate}
+                      onChange={(e) => setProjections(prev => prev.map(p => p.id === proj.id ? { ...p, startDate: e.target.value } : p))}
+                      className="w-full bg-white border border-brand-border rounded-xl px-3 py-2 text-xs font-bold outline-none"
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
+
+            {projections.length === 0 && (
+              <div className="col-span-full py-12 text-center bg-brand-surface/30 rounded-2xl border-2 border-dashed border-brand-border">
+                <TrendingUp className="w-8 h-8 text-brand-muted mx-auto mb-2 opacity-30" />
+                <p className="text-xs font-bold text-brand-muted uppercase tracking-widest">ยังไม่มีการคาดการณ์รายได้</p>
+                <button 
+                  onClick={addProjection}
+                  className="mt-2 text-[10px] font-black text-emerald-600 hover:underline px-4 py-2"
+                >
+                  + เริ่มต้นคาดการณ์ก้าวสำคัญของรายได้
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </section>
 

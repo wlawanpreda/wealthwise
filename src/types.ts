@@ -52,6 +52,14 @@ export interface FinancialSnapshot {
   savingsRate: number;
 }
 
+export interface IncomeProjection {
+  id: string;
+  name: string;
+  monthlyAmountChange: number;
+  startDate: string; // YYYY-MM
+  type: 'increase' | 'decrease';
+}
+
 export interface FinancialPlan {
   income: number;
   allocations: BudgetAllocation[];
@@ -59,6 +67,7 @@ export interface FinancialPlan {
   emergencyFunds: FinancialAccount[];
   savingsTarget: number;
   history?: FinancialSnapshot[];
+  projections?: IncomeProjection[];
 }
 
 export interface PillarStatus {

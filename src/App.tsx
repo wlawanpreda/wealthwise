@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { BudgetAllocation, Liability, FinancialAccount, CSRCategory, FinancialPlan, FinancialSnapshot } from './types';
 import { calculateCSR, evaluatePillars } from './utils/financialLogic';
+import { fetchExternalInvestments } from './services/externalFinancials';
 import PillarCard from './components/PillarCard';
 import CSRChart from './components/CSRChart';
 import WealthProgress from './components/WealthProgress';
@@ -36,7 +37,9 @@ export default function App() {
   const [liabilities, setLiabilities] = React.useState<Liability[]>([]);
   const [accounts, setAccounts] = React.useState<FinancialAccount[]>([]);
   const [history, setHistory] = React.useState<FinancialSnapshot[]>([]);
+  const [projections, setProjections] = React.useState<IncomeProjection[]>([]);
   const [isSyncing, setIsSyncing] = React.useState(false);
+  const [isExternalSyncing, setIsExternalSyncing] = React.useState(false);
 
   const [activeTab, setActiveTab] = React.useState<'overview' | 'planning' | 'trends'>('overview');
 
@@ -49,6 +52,7 @@ export default function App() {
       setLiabilities(plan.liabilities);
       setAccounts(plan.emergencyFunds);
       setHistory(plan.history || []);
+      setProjections(plan.projections || []);
     }
   }, [plan]);
 
@@ -79,6 +83,41 @@ export default function App() {
     setActiveTab('trends');
   };
 
+  const syncExternalInvestments = async () => {
+    if (!user) return;
+    setIsExternalSyncing(true);
+    try {
+      const extAccounts = await fetchExternalInvestments(user.uid);
+      if (extAccounts.length > 0) {
+        setAccounts(prev => {
+          // Map to track accounts by deterministic ID to prevent duplication
+          const accountMap = new Map(prev.map(a => [a.id, a]));
+          
+          extAccounts.forEach(ext => {
+            if (accountMap.has(ext.id)) {
+              // Update existing external account
+              const existing = accountMap.get(ext.id)!;
+              accountMap.set(ext.id, { ...existing, amount: ext.amount });
+            } else {
+              // Add as new account
+              accountMap.set(ext.id, ext);
+            }
+          });
+
+          return Array.from(accountMap.values());
+        });
+        alert(`ซิงค์ข้อมูลสำเร็จ! ปรับปรุง/อัปเดต ${extAccounts.length} รายการลงทุนจากระบบภายนอก`);
+      } else {
+        alert("ไม่พบข้อมูลการลงทุนในระบบอื่น");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("เกิดข้อผิดพลาดในการเชื่อมต่อข้อมูลภายนอก");
+    } finally {
+      setIsExternalSyncing(false);
+    }
+  };
+
   // Sync back to Firebase on change (debounced)
   React.useEffect(() => {
     if (!user || !plan) return;
@@ -90,7 +129,8 @@ export default function App() {
         allocations,
         liabilities,
         emergencyFunds: accounts,
-        history
+        history,
+        projections
       };
 
       if (JSON.stringify(currentPlan) !== JSON.stringify(plan)) {
@@ -104,7 +144,7 @@ export default function App() {
     }, 2000);
 
     return () => clearTimeout(timer);
-  }, [income, savingsTarget, allocations, liabilities, accounts, history, user, plan]);
+  }, [income, savingsTarget, allocations, liabilities, accounts, history, projections, user, plan]);
 
   if (loading) {
     return (
@@ -126,13 +166,15 @@ export default function App() {
   const totalAllocated = Object.values(csr).reduce((a, b) => a + b, 0);
   const liquidity = income - totalAllocated;
   const reserveAmount = csr[CSRCategory.RESERVE];
+  const totalRemainingDebt = liabilities.reduce((sum, l) => sum + l.totalAmount, 0);
+  const totalMonthlyDebt = liabilities.reduce((sum, l) => sum + l.monthlyPayment, 0);
   const totalWealth = accounts.reduce((s, a) => s + a.amount, 0);
+  const netWorth = totalWealth - totalRemainingDebt;
 
   // Calculate metrics for milestones
   const totalEmergency = accounts.filter(a => a.isEmergencyFund).reduce((sum, f) => sum + f.amount, 0);
   const monthlyExpenses = csr[CSRCategory.CONSTANT] + csr[CSRCategory.SPENDING];
   const emergencyMonths = totalEmergency / (monthlyExpenses || 1);
-  const totalMonthlyDebt = liabilities.reduce((sum, l) => sum + l.monthlyPayment, 0);
   const dti = totalMonthlyDebt / (income || 1);
 
   const exportJSON = () => {
@@ -340,7 +382,17 @@ export default function App() {
               </div>
             </>
           ) : activeTab === 'trends' ? (
-            <TrendDashboard history={history} onTakeSnapshot={takeSnapshot} />
+            <TrendDashboard 
+              history={history} 
+              onTakeSnapshot={takeSnapshot}
+              currentWealth={totalWealth}
+              currentDebt={totalRemainingDebt}
+              currentNetWorth={netWorth}
+              savingsTarget={savingsTarget}
+              monthlyExpenses={monthlyExpenses}
+              income={income}
+              projections={projections}
+            />
           ) : (
             <FinancialPlanner 
               income={income}
@@ -353,6 +405,10 @@ export default function App() {
               setLiabilities={setLiabilities}
               accounts={accounts}
               setAccounts={setAccounts}
+              projections={projections}
+              setProjections={setProjections}
+              isExternalSyncing={isExternalSyncing}
+              onSyncExternal={syncExternalInvestments}
             />
           )}
 
@@ -360,11 +416,25 @@ export default function App() {
           <footer className="bg-brand-text text-white p-5 rounded-2xl flex items-center gap-8 mt-auto overflow-hidden">
             <div className="flex gap-4 items-center overflow-x-auto whitespace-nowrap scrollbar-hide">
               <span className="text-[10px] font-bold bg-[#344054] px-2 py-1 rounded shrink-0">สถานะงบประมาณ</span>
-              <div className="text-sm font-mono flex gap-8">
-                <span>เงินคงเหลือ: <span className={liquidity >= 0 ? "text-emerald-400" : "text-red-400"}>{formatCurrency(liquidity)}</span></span>
-                <span>ภาระหนี้รวม: <span className="text-orange-300">{formatCurrency(liabilities.reduce((s,l) => s+l.monthlyPayment, 0))}</span></span>
-                <span>เงินสำรองรวม: <span className="text-emerald-400">{formatCurrency(accounts.filter(a => a.isEmergencyFund).reduce((s,f) => s+f.amount, 0))}</span></span>
-                <span>รายได้: <span className="text-blue-400">{formatCurrency(income)}</span></span>
+              <div className="text-sm font-mono flex gap-8 items-center">
+                <div className="flex flex-col">
+                  <span className="text-[9px] text-gray-400">ทรัพย์สินรวม (Wealth)</span>
+                  <span className="text-blue-400">{formatCurrency(totalWealth)}</span>
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-[9px] text-gray-400">หนี้คงค้าง (Total Debt)</span>
+                  <span className="text-orange-400">{formatCurrency(totalRemainingDebt)}</span>
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-[9px] text-gray-400">ความมั่งคั่งสุทธิ (Net Worth)</span>
+                  <span className={netWorth >= 0 ? "text-emerald-400" : "text-red-400"}>
+                    {formatCurrency(netWorth)}
+                  </span>
+                </div>
+                <div className="flex flex-col border-l border-white/10 pl-4">
+                  <span className="text-[9px] text-gray-400">DTI (Monthly Debt Ratio)</span>
+                  <span className={dti <= 0.4 ? "text-emerald-400" : "text-red-400"}>{(dti * 100).toFixed(1)}%</span>
+                </div>
               </div>
             </div>
             <div className="ml-auto flex gap-3 shrink-0">
