@@ -51,6 +51,13 @@ export async function getFinancialAdvice(
       ${pillars.map(p => `- ${p.name}: ${p.status} (คะแนน: ${p.score}/100) - ${p.insight}`).join('\n')}
     
     เป้าหมายสูงสุด: บรรลุเงินออม ${savingsTarget.toLocaleString()} บาท
+
+    ภารกิจของคุณ:
+    1. วิเคราะห์โครงสร้าง CSR และแนะนำการปรับปรุง
+    2. วิเคราะห์ 4-Pillar Financial Health
+    3. แนะนำกลยุทธ์การจัดการหนี้ (Snowball หรือ Avalanche)
+    4. แนะนำการวางแผนภาษี (Tax optimization) จากงบในส่วน Constant (เช่น SSF, RMF, ประกัน)
+    5. ให้กำลังใจและเเนะนำ "ก้าวถัดไป" ที่ชัดเจนแบบ Action Plan
   `;
 
   try {

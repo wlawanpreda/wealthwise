@@ -24,6 +24,14 @@ export interface Liability {
   dueDate?: string;
 }
 
+export interface Transaction {
+  id: string;
+  timestamp: number;
+  type: 'deposit' | 'withdrawal';
+  amount: number;
+  note: string;
+}
+
 export interface FinancialAccount {
   id: string;
   name: string;
@@ -31,14 +39,26 @@ export interface FinancialAccount {
   purpose: string;
   isEmergencyFund: boolean;
   type: 'Savings' | 'Fixed' | 'Investment' | 'Other';
+  transactions: Transaction[];
+}
+
+export interface FinancialSnapshot {
+  id: string;
+  month: string; // YYYY-MM
+  timestamp: number;
+  totalWealth: number;
+  totalDebt: number;
+  netWorth: number;
+  savingsRate: number;
 }
 
 export interface FinancialPlan {
   income: number;
   allocations: BudgetAllocation[];
   liabilities: Liability[];
-  emergencyFunds: FinancialAccount[]; // Keep naming for backward compat in Firestore or rename carefully
+  emergencyFunds: FinancialAccount[];
   savingsTarget: number;
+  history?: FinancialSnapshot[];
 }
 
 export interface PillarStatus {

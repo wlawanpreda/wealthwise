@@ -29,7 +29,8 @@ export const INITIAL_ACCOUNTS: FinancialAccount[] = [
     amount: 50000, 
     purpose: 'เงินสำรองฉุกเฉิน 3 เดือนแรก',
     isEmergencyFund: true,
-    type: 'Savings'
+    type: 'Savings',
+    transactions: []
   },
   { 
     id: 'E2', 
@@ -37,6 +38,7 @@ export const INITIAL_ACCOUNTS: FinancialAccount[] = [
     amount: 25000, 
     purpose: 'เงินเก็บหมุนเวียน',
     isEmergencyFund: false,
-    type: 'Savings'
+    type: 'Savings',
+    transactions: []
   },
 ];

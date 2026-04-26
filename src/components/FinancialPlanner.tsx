@@ -1,5 +1,6 @@
 import React from 'react';
-import { Plus, Trash2, Shield, CreditCard, Wallet, TrendingUp, PiggyBank, ArrowUpDown, ChevronUp, ChevronDown, AlertTriangle } from 'lucide-react';
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
+import { Plus, Trash2, Shield, CreditCard, Wallet, TrendingUp, PiggyBank, ArrowUpDown, ChevronUp, ChevronDown, AlertTriangle, History, PlusCircle, ArrowUpRight, ArrowDownLeft } from 'lucide-react';
 import { BudgetAllocation, Liability, FinancialAccount, CSRCategory } from '../types';
 import { formatCurrency, cn } from '../lib/utils';
 
@@ -16,8 +17,18 @@ interface FinancialPlannerProps {
   setAccounts: React.Dispatch<React.SetStateAction<FinancialAccount[]>>;
 }
 
-type SortKey = 'monthlyPayment' | 'dueDate';
+type SortKey = 'name' | 'totalAmount' | 'monthlyPayment' | 'dueDate';
 type SortOrder = 'asc' | 'desc';
+
+const PURPOSE_SUGGESTIONS = [
+  'สำรองฉุกเฉิน 6 เดือน',
+  'เที่ยวต่างประเทศ',
+  'เงินดาวน์บ้าน/รถ',
+  'การศึกษาบุตร',
+  'เกษียณอายุ',
+  'ลงทุนหุ้น/กองทุน',
+  'เก็บออมทั่วไป'
+];
 
 export default function FinancialPlanner({
   income, setIncome,
@@ -28,14 +39,17 @@ export default function FinancialPlanner({
 }: FinancialPlannerProps) {
   const [sortKey, setSortKey] = React.useState<SortKey>('dueDate');
   const [sortOrder, setSortOrder] = React.useState<SortOrder>('asc');
+  const [expandedAccount, setExpandedAccount] = React.useState<string | null>(null);
 
   const sortedLiabilities = React.useMemo(() => {
     return [...liabilities].sort((a, b) => {
       let valA: any = a[sortKey];
       let valB: any = b[sortKey];
 
-      // Handle empty values for sorting
-      if (sortKey === 'dueDate') {
+      if (sortKey === 'name') {
+        valA = valA.toLowerCase();
+        valB = valB.toLowerCase();
+      } else if (sortKey === 'dueDate') {
         valA = parseInt(valA) || 99;
         valB = parseInt(valB) || 99;
       }
@@ -81,6 +95,35 @@ export default function FinancialPlanner({
     setLiabilities(prev => [...prev, { id: crypto.randomUUID(), name: '', totalAmount: 0, monthlyPayment: 0, dueDate: '' }]);
   };
 
+  const addTransaction = (accId: string, type: 'deposit' | 'withdrawal') => {
+    const amountStr = window.prompt(`ระบุจำนวนเงินที่ต้องการ ${type === 'deposit' ? 'ฝาก' : 'ถอน'}:`);
+    if (amountStr === null) return;
+    
+    const amount = Number(amountStr);
+    if (isNaN(amount) || amount <= 0) {
+      alert('กรุณาระบุจำนวนเงินที่ถูกต้อง');
+      return;
+    }
+
+    const note = window.prompt('ระบุหมายเหตุ (ถ้ามี):') || '';
+
+    setAccounts(prev => prev.map(acc => {
+      if (acc.id === accId) {
+        const newTransaction = {
+          id: crypto.randomUUID(),
+          timestamp: Date.now(),
+          type,
+          amount,
+          note
+        };
+        const newTransactions = [newTransaction, ...(acc.transactions || [])];
+        const newAmount = type === 'deposit' ? acc.amount + amount : acc.amount - amount;
+        return { ...acc, amount: newAmount, transactions: newTransactions };
+      }
+      return acc;
+    }));
+  };
+
   const addAccount = () => {
     setAccounts(prev => [...prev, { 
       id: crypto.randomUUID(), 
@@ -88,7 +131,8 @@ export default function FinancialPlanner({
       amount: 0, 
       purpose: '', 
       isEmergencyFund: false,
-      type: 'Savings'
+      type: 'Savings',
+      transactions: []
     }]);
   };
 
@@ -111,16 +155,20 @@ export default function FinancialPlanner({
                 <input 
                   type="number"
                   value={income}
-                  onChange={(e) => setIncome(Number(e.target.value))}
+                  onChange={(e) => {
+                    const val = Number(e.target.value);
+                    setIncome(val);
+                  }}
                   className={cn(
                     "w-full bg-brand-surface border border-brand-border rounded-xl p-4 text-xl font-bold outline-none transition-all pl-10",
-                    income <= 0 ? "border-orange-200 bg-orange-50/30" : "focus:ring-2 focus:ring-blue-600/20"
+                    income <= 0 ? "border-red-200 bg-red-50/30" : "focus:ring-2 focus:ring-blue-600/20"
                   )}
                   placeholder="0"
+                  min="1"
                 />
                 <span className="absolute left-4 top-1/2 -translate-y-1/2 text-brand-secondary font-bold">฿</span>
               </div>
-              {income <= 0 && <p className="text-[10px] text-orange-600 font-bold mt-2">กรุณาระบุรายได้เพื่อคำนวณ CSR</p>}
+              {income <= 0 && <p className="text-[10px] text-red-600 font-bold mt-2 flex items-center gap-1"><AlertTriangle size={10} /> กรุณาระบุรายได้ที่มากกว่า 0 เพื่อคำนวณสัดส่วนอย่างถูกต้อง</p>}
             </div>
             <div>
               <label className="text-[10px] font-bold text-brand-muted uppercase tracking-widest mb-2 block">เป้าหมายเงินออม (ทั้งหมด)</label>
@@ -203,6 +251,26 @@ export default function FinancialPlanner({
                 </div>
                 
                 <div className="flex flex-col gap-3 min-h-[50px]">
+                  {allocations.filter(a => a.category === category).length === 0 && (
+                    <div className="flex flex-wrap gap-2 mb-2 p-2 bg-brand-surface rounded-xl border border-dashed border-brand-border">
+                      <p className="w-full text-[9px] font-bold text-brand-muted uppercase tracking-widest mb-1">ตัวอย่างรายการ:</p>
+                      {(category === CSRCategory.CONSTANT ? 
+                        ['ผ่อนบ้าน/เช่าบ้าน', 'ประกันชีวิต/สุขภาพ', 'ให้พ่อแม่', 'ค่าสมาชิก'] :
+                        category === CSRCategory.SPENDING ?
+                        ['ค่าอาหาร', 'ค่าน้ำมัน', 'ช้อปปิ้ง', 'ท่องเที่ยว'] :
+                        ['SSF/RMF', 'กองทุนรวม', 'เงินออมฉุกเฉิน', 'บำนาญ']
+                      ).map(example => (
+                        <button
+                          key={example}
+                          onClick={() => setAllocations(prev => [...prev, { id: crypto.randomUUID(), name: example, amount: 0, category }])}
+                          className="text-[10px] bg-white border border-brand-border px-2 py-1 rounded-lg hover:border-brand-text transition-colors text-brand-muted hover:text-brand-text"
+                        >
+                          + {example}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
                   {allocations.filter(a => a.category === category).map(alloc => (
                     <div key={alloc.id} className="flex flex-col gap-1 group">
                       <div className="flex gap-2">
@@ -271,13 +339,73 @@ export default function FinancialPlanner({
             <Plus size={14} /> เพิ่มรายการหนี้
           </button>
         </div>
+
+        {liabilities.length > 0 && (
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 bg-white p-6 rounded-3xl border border-brand-border shadow-sm">
+            <div className="lg:col-span-5 h-[200px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={liabilities.map(l => ({ name: l.name || 'ไม่ระบุชื่อ', value: l.totalAmount }))}
+                    innerRadius={60}
+                    outerRadius={80}
+                    paddingAngle={5}
+                    dataKey="value"
+                  >
+                    {liabilities.map((_, index) => (
+                      <Cell key={`cell-${index}`} fill={['#ef4444', '#f97316', '#facc15', '#3b82f6', '#8b5cf6', '#ec4899'][index % 6]} strokeWidth={0} />
+                    ))}
+                  </Pie>
+                  <Tooltip 
+                    contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                    formatter={(value: number) => formatCurrency(value)}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="lg:col-span-7 flex flex-col justify-center">
+              <h3 className="text-[10px] font-black text-brand-muted uppercase tracking-widest mb-4">สัดส่วนหนี้สิน (ตามยอดคงเหลือ)</h3>
+              <div className="grid grid-cols-2 gap-3">
+                {liabilities.sort((a,b) => b.totalAmount - a.totalAmount).slice(0, 4).map((debt, i) => (
+                  <div key={debt.id} className="flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: ['#ef4444', '#f97316', '#facc15', '#3b82f6', '#8b5cf6', '#ec4899'][i % 6] }} />
+                    <span className="text-[11px] font-bold text-brand-text truncate w-24">{debt.name || 'ไม่ระบุ'}</span>
+                    <span className="text-[11px] font-black text-brand-muted ml-auto">
+                      {((debt.totalAmount / (liabilities.reduce((s,l) => s + l.totalAmount, 0) || 1)) * 100).toFixed(1)}%
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-6 pt-4 border-t border-brand-border flex justify-between items-center">
+                <p className="text-[10px] font-black text-brand-muted uppercase">หนี้รวมทั้งหมด</p>
+                <p className="text-xl font-black text-red-600">{formatCurrency(liabilities.reduce((s,l) => s + l.totalAmount, 0))}</p>
+              </div>
+            </div>
+          </div>
+        )}
         
         <div className="bg-white rounded-3xl border border-brand-border shadow-sm overflow-hidden">
           <table className="w-full text-left">
             <thead className="bg-brand-surface/70 text-brand-muted">
               <tr>
-                <th className="px-6 py-4 text-[10px] uppercase font-black tracking-widest text-brand-muted">ชื่อรายการหนี้</th>
-                <th className="px-6 py-4 text-[10px] uppercase font-black tracking-widest text-brand-muted">ยอดคงเหลือ</th>
+                <th 
+                  className="px-6 py-4 text-[10px] uppercase font-black tracking-widest text-brand-muted cursor-pointer hover:text-brand-text transition-colors"
+                  onClick={() => toggleSort('name')}
+                >
+                  <div className="flex items-center gap-1">
+                    ชื่อรายการหนี้
+                    <SortIcon active={sortKey === 'name'} order={sortOrder} />
+                  </div>
+                </th>
+                <th 
+                  className="px-6 py-4 text-[10px] uppercase font-black tracking-widest text-brand-muted cursor-pointer hover:text-brand-text transition-colors"
+                  onClick={() => toggleSort('totalAmount')}
+                >
+                  <div className="flex items-center gap-1">
+                    ยอดคงเหลือ
+                    <SortIcon active={sortKey === 'totalAmount'} order={sortOrder} />
+                  </div>
+                </th>
                 <th 
                   className="px-6 py-4 text-[10px] uppercase font-black tracking-widest text-brand-muted cursor-pointer hover:text-brand-text transition-colors"
                   onClick={() => toggleSort('monthlyPayment')}
@@ -424,31 +552,120 @@ export default function FinancialPlanner({
                       className="text-sm font-bold text-brand-text outline-none w-full mb-1 focus:text-indigo-600"
                       placeholder="ชื่อธนาคาร / บัญชี"
                     />
-                    <div className="flex items-baseline gap-1 mt-2">
-                      <span className="text-sm font-black text-brand-text">฿</span>
-                      <input 
-                        type="number"
-                        value={acc.amount || ''}
-                        onChange={(e) => setAccounts(prev => prev.map(a => a.id === acc.id ? { ...a, amount: Number(e.target.value) } : a))}
-                        className="text-2xl font-black bg-transparent outline-none w-full text-brand-text"
-                        placeholder="0"
-                      />
+                     <div className="flex items-baseline gap-1 mt-2">
+                       <span className="text-sm font-black text-brand-text">฿</span>
+                       <p className="text-2xl font-black text-brand-text">
+                         {(acc.amount || 0).toLocaleString()}
+                       </p>
+                       <div className="flex gap-1 ml-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                         <button 
+                           onClick={() => addTransaction(acc.id, 'deposit')}
+                           className="p-1 rounded bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition-colors"
+                           title="Deposit"
+                         >
+                           <ArrowUpRight size={14} />
+                         </button>
+                         <button 
+                           onClick={() => addTransaction(acc.id, 'withdrawal')}
+                           className="p-1 rounded bg-orange-50 text-orange-600 hover:bg-orange-100 transition-colors"
+                           title="Withdraw"
+                         >
+                           <ArrowDownLeft size={14} />
+                         </button>
+                       </div>
+                     </div>
+                   </div>
+                   <div className="flex flex-col gap-2">
+                    <button 
+                      onClick={() => setAccounts(prev => prev.filter(a => a.id !== acc.id))}
+                      className="text-brand-muted opacity-0 group-hover:opacity-100 hover:text-red-500 transition-all p-1"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                    <button 
+                      onClick={() => setExpandedAccount(expandedAccount === acc.id ? null : acc.id)}
+                      className={cn(
+                        "p-1.5 rounded-lg transition-all",
+                        expandedAccount === acc.id ? "bg-indigo-600 text-white" : "bg-brand-surface text-brand-muted hover:text-indigo-600"
+                      )}
+                    >
+                      <History size={16} />
+                    </button>
+                   </div>
+                </div>
+                
+                {expandedAccount === acc.id && (
+                  <div className="flex flex-col gap-3 py-4 border-t border-brand-border mt-2 animate-in slide-in-from-top-2 duration-300">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[10px] font-black text-brand-muted uppercase tracking-widest">ประวัติรายการทรัพย์สิน</p>
+                      <button 
+                        onClick={() => addTransaction(acc.id, 'deposit')}
+                        className="flex items-center gap-1 text-[9px] font-bold text-indigo-600 hover:underline"
+                      >
+                        <PlusCircle size={10} /> เพิ่มรายการใหม่
+                      </button>
+                    </div>
+                    
+                    <div className="max-h-[200px] overflow-y-auto flex flex-col gap-2 pr-2 custom-scrollbar">
+                      {(acc.transactions || []).length === 0 ? (
+                        <p className="text-[10px] text-brand-muted text-center py-4">ยังไม่มีประวัติรายการ</p>
+                      ) : (
+                        acc.transactions.map(t => (
+                          <div key={t.id} className="flex items-center justify-between p-2 rounded-xl bg-brand-surface/50 border border-brand-border/30">
+                            <div className="flex items-center gap-2">
+                              <div className={cn(
+                                "p-1.5 rounded-lg",
+                                t.type === 'deposit' ? "bg-emerald-100 text-emerald-700" : "bg-orange-100 text-orange-700"
+                              )}>
+                                {t.type === 'deposit' ? <ArrowUpRight size={10} /> : <ArrowDownLeft size={10} />}
+                              </div>
+                              <div>
+                                <p className="text-[10px] font-bold text-brand-text truncate w-24">{t.note || (t.type === 'deposit' ? 'ฝากเงิน' : 'ถอนเงิน')}</p>
+                                <p className="text-[8px] text-brand-muted">{new Date(t.timestamp).toLocaleDateString()} {new Date(t.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                              </div>
+                            </div>
+                            <p className={cn(
+                              "text-xs font-black",
+                              t.type === 'deposit' ? "text-emerald-600" : "text-orange-600"
+                            )}>
+                              {t.type === 'deposit' ? '+' : '-'}{t.amount.toLocaleString()}
+                            </p>
+                          </div>
+                        ))
+                      )}
                     </div>
                   </div>
-                  <button 
-                    onClick={() => setAccounts(prev => prev.filter(a => a.id !== acc.id))}
-                    className="text-brand-muted opacity-0 group-hover:opacity-100 hover:text-red-500 transition-all p-1"
-                  >
-                    <Trash2 size={16} />
-                  </button>
-               </div>
-               <div className="flex flex-col gap-2">
-                 <p className="text-[9px] font-bold text-brand-muted uppercase tracking-widest">วัตถุประสงค์ / หมายเหตุ</p>
-                 <textarea 
+                )}
+
+                <div className="flex flex-col gap-3">
+                 <div className="flex items-center justify-between">
+                   <p className="text-[9px] font-bold text-brand-muted uppercase tracking-widest">วัตถุประสงค์ / หมายเหตุ</p>
+                   <span className="text-[9px] font-bold text-brand-muted">{acc.purpose.length}/50</span>
+                 </div>
+                 
+                 <div className="flex flex-wrap gap-1.5 mb-2">
+                    {PURPOSE_SUGGESTIONS.map(sugg => (
+                      <button
+                        key={sugg}
+                        onClick={() => setAccounts(prev => prev.map(a => a.id === acc.id ? { ...a, purpose: sugg } : a))}
+                        className="text-[9px] bg-brand-surface border border-brand-border px-2 py-0.5 rounded hover:border-indigo-300 hover:text-indigo-600 transition-all text-brand-muted"
+                      >
+                        {sugg}
+                      </button>
+                    ))}
+                 </div>
+
+                 <input 
+                    type="text"
                     value={acc.purpose}
-                    onChange={(e) => setAccounts(prev => prev.map(a => a.id === acc.id ? { ...a, purpose: e.target.value } : a))}
-                    className="text-xs text-brand-text bg-brand-surface p-3 rounded-xl resize-none outline-none focus:ring-1 focus:ring-indigo-500/20 w-full min-h-[60px]"
-                    placeholder="เช่น เพื่อสำรองจ่ายกรณีตกงาน 6 เดือน..."
+                    onChange={(e) => {
+                      if (e.target.value.length <= 50) {
+                        setAccounts(prev => prev.map(a => a.id === acc.id ? { ...a, purpose: e.target.value } : a));
+                      }
+                    }}
+                    className="text-xs text-brand-text bg-brand-surface p-3 rounded-xl outline-none focus:ring-1 focus:ring-indigo-500/20 w-full"
+                    placeholder="ระบุวัตถุประสงค์ (สูงสุด 50 ตัวอักษร)"
+                    maxLength={50}
                  />
                </div>
             </div>

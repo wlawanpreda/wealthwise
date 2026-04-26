@@ -11,14 +11,17 @@ import {
   CloudOff, 
   RefreshCw,
   LayoutDashboard,
-  Target
+  Target,
+  History as HistoryIcon
 } from 'lucide-react';
-import { BudgetAllocation, Liability, FinancialAccount, CSRCategory, FinancialPlan } from './types';
+import { BudgetAllocation, Liability, FinancialAccount, CSRCategory, FinancialPlan, FinancialSnapshot } from './types';
 import { calculateCSR, evaluatePillars } from './utils/financialLogic';
 import PillarCard from './components/PillarCard';
 import CSRChart from './components/CSRChart';
 import WealthProgress from './components/WealthProgress';
 import FinancialPlanner from './components/FinancialPlanner';
+import FinancialMilestones from './components/FinancialMilestones';
+import TrendDashboard from './components/TrendDashboard';
 import ChatBot from './components/ChatBot';
 import { formatCurrency, cn } from './lib/utils';
 import { useFirebase } from './components/FirebaseProvider';
@@ -32,9 +35,10 @@ export default function App() {
   const [allocations, setAllocations] = React.useState<BudgetAllocation[]>([]);
   const [liabilities, setLiabilities] = React.useState<Liability[]>([]);
   const [accounts, setAccounts] = React.useState<FinancialAccount[]>([]);
+  const [history, setHistory] = React.useState<FinancialSnapshot[]>([]);
   const [isSyncing, setIsSyncing] = React.useState(false);
 
-  const [activeTab, setActiveTab] = React.useState<'overview' | 'planning'>('overview');
+  const [activeTab, setActiveTab] = React.useState<'overview' | 'planning' | 'trends'>('overview');
 
   // Initialize local state from Firebase plan
   React.useEffect(() => {
@@ -44,21 +48,49 @@ export default function App() {
       setAllocations(plan.allocations);
       setLiabilities(plan.liabilities);
       setAccounts(plan.emergencyFunds);
+      setHistory(plan.history || []);
     }
   }, [plan]);
+
+  // Snapshot logic
+  const takeSnapshot = async () => {
+    const csr = calculateCSR(allocations);
+    const totalWealth = accounts.reduce((s, a) => s + a.amount, 0);
+    const totalRemainingDebt = liabilities.reduce((sum, l) => sum + l.totalAmount, 0);
+    const savingsRate = (csr[CSRCategory.RESERVE] / (income || 1)) * 100;
+    
+    const now = new Date();
+    const monthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    
+    const snapshot: FinancialSnapshot = {
+      id: crypto.randomUUID(),
+      month: monthStr,
+      timestamp: Date.now(),
+      totalWealth,
+      totalDebt: totalRemainingDebt,
+      netWorth: totalWealth - totalRemainingDebt,
+      savingsRate
+    };
+
+    const newHistory = [...history.filter(h => h.month !== monthStr), snapshot].sort((a, b) => a.timestamp - b.timestamp);
+    setHistory(newHistory);
+    
+    // Switch tab to see visual feedback
+    setActiveTab('trends');
+  };
 
   // Sync back to Firebase on change (debounced)
   React.useEffect(() => {
     if (!user || !plan) return;
 
     const timer = setTimeout(async () => {
-      // Check if actually changed to avoid redundant writes
       const currentPlan: FinancialPlan = {
         income,
         savingsTarget,
         allocations,
         liabilities,
-        emergencyFunds: accounts
+        emergencyFunds: accounts,
+        history
       };
 
       if (JSON.stringify(currentPlan) !== JSON.stringify(plan)) {
@@ -72,7 +104,7 @@ export default function App() {
     }, 2000);
 
     return () => clearTimeout(timer);
-  }, [income, savingsTarget, allocations, liabilities, accounts, user, plan]);
+  }, [income, savingsTarget, allocations, liabilities, accounts, history, user, plan]);
 
   if (loading) {
     return (
@@ -95,6 +127,13 @@ export default function App() {
   const liquidity = income - totalAllocated;
   const reserveAmount = csr[CSRCategory.RESERVE];
   const totalWealth = accounts.reduce((s, a) => s + a.amount, 0);
+
+  // Calculate metrics for milestones
+  const totalEmergency = accounts.filter(a => a.isEmergencyFund).reduce((sum, f) => sum + f.amount, 0);
+  const monthlyExpenses = csr[CSRCategory.CONSTANT] + csr[CSRCategory.SPENDING];
+  const emergencyMonths = totalEmergency / (monthlyExpenses || 1);
+  const totalMonthlyDebt = liabilities.reduce((sum, l) => sum + l.monthlyPayment, 0);
+  const dti = totalMonthlyDebt / (income || 1);
 
   const exportJSON = () => {
     const data = {
@@ -172,6 +211,12 @@ export default function App() {
             onClick={() => setActiveTab('planning')}
             label="วางแผนงบประมาณ/หนี้"
           />
+          <NavButton 
+            icon={HistoryIcon} 
+            active={activeTab === 'trends'} 
+            onClick={() => setActiveTab('trends')}
+            label="แนวโน้มความมั่งคั่ง"
+          />
         </div>
 
         {/* Integrated Chat Simulation in Sidebar */}
@@ -199,6 +244,26 @@ export default function App() {
             <>
               {/* Header Metric */}
               <WealthProgress current={totalWealth} target={savingsTarget} monthlySaving={reserveAmount} />
+              
+              {/* Additional Action for monthly record */}
+              <div className="flex justify-end -mt-4">
+                <button 
+                  onClick={takeSnapshot}
+                  className="group flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-xl text-xs font-bold hover:bg-emerald-600 hover:text-white transition-all shadow-sm"
+                >
+                  <HistoryIcon size={14} className="group-hover:rotate-[-45deg] transition-transform" />
+                  บันทึกประวัติอัตโนมัติ
+                </button>
+              </div>
+
+              {/* Financial Roadmap Milestones */}
+              <FinancialMilestones 
+                pillars={pillars}
+                totalWealth={totalWealth}
+                emergencyMonths={emergencyMonths}
+                dti={dti}
+                savingsTarget={savingsTarget}
+              />
 
               {/* CSR Allocation Cards */}
               <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -274,6 +339,8 @@ export default function App() {
                 </div>
               </div>
             </>
+          ) : activeTab === 'trends' ? (
+            <TrendDashboard history={history} onTakeSnapshot={takeSnapshot} />
           ) : (
             <FinancialPlanner 
               income={income}

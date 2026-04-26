@@ -25,17 +25,36 @@
       },
       "required": ["id", "name", "totalAmount", "monthlyPayment"]
     },
-    "EmergencyFund": {
-      "title": "Emergency Fund",
-      "description": "Liquidity reserve in a bank",
+    "FinancialAccount": {
+      "title": "Financial Account",
+      "description": "Liquidity reserve or investment account",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
-        "bankName": { "type": "string" },
+        "name": { "type": "string" },
         "amount": { "type": "number" },
-        "purpose": { "type": "string" }
+        "purpose": { "type": "string" },
+        "isEmergencyFund": { "type": "boolean" },
+        "type": { "type": "string", "enum": ["Savings", "Fixed", "Investment", "Other"] },
+        "transactions": {
+          "type": "array",
+          "items": { "$ref": "#/entities/Transaction" }
+        }
       },
-      "required": ["id", "bankName", "amount", "purpose"]
+      "required": ["id", "name", "amount", "purpose", "isEmergencyFund", "transactions"]
+    },
+    "Transaction": {
+      "title": "Transaction",
+      "description": "A deposit or withdrawal related to an account",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "timestamp": { "type": "number" },
+        "type": { "type": "string", "enum": ["deposit", "withdrawal"] },
+        "amount": { "type": "number" },
+        "note": { "type": "string" }
+      },
+      "required": ["id", "timestamp", "type", "amount"]
     },
     "FinancialPlan": {
       "title": "Financial Plan",
@@ -53,7 +72,7 @@
         },
         "emergencyFunds": { 
           "type": "array",
-          "items": { "$ref": "#/entities/EmergencyFund" }
+          "items": { "$ref": "#/entities/FinancialAccount" }
         }
       },
       "required": ["income", "allocations", "liabilities", "emergencyFunds"]
