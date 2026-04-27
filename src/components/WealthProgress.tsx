@@ -4,14 +4,15 @@
  */
 
 import { motion } from 'motion/react';
-import { SAVINGS_GOAL_TOTAL } from '../constants';
 import { formatCurrency } from '../lib/utils';
-import { Target, Flag } from 'lucide-react';
+import { useFinancial } from '../context/FinancialContext';
 
-export default function WealthProgress({ current, target, monthlySaving }: { current: number; target: number; monthlySaving: number }) {
-  const percentage = Math.min(100, (current / (target || 1)) * 100);
-  const remaining = Math.max(0, target - current);
-  const monthsToGoal = monthlySaving > 0 ? Math.ceil(remaining / monthlySaving) : Infinity;
+export default function WealthProgress() {
+  const { totalWealth, savingsTarget, reserveAmount } = useFinancial();
+
+  const percentage = Math.min(100, (totalWealth / (savingsTarget || 1)) * 100);
+  const remaining = Math.max(0, savingsTarget - totalWealth);
+  const monthsToGoal = reserveAmount > 0 ? Math.ceil(remaining / reserveAmount) : Infinity;
   
   return (
     <header className="flex flex-col bg-white p-8 rounded-3xl border border-brand-border shadow-sm gap-8 relative overflow-hidden">
@@ -22,28 +23,28 @@ export default function WealthProgress({ current, target, monthlySaving }: { cur
         <div className="flex flex-col">
           <p className="text-[10px] font-black text-brand-muted uppercase tracking-[0.2em] mb-2 leading-none">เป้าหมายเงินออมระยะยาว</p>
           <h2 className="text-4xl md:text-5xl font-black tracking-tighter text-brand-text">
-            {formatCurrency(target).replace('฿', '')} <span className="text-xl font-bold text-brand-secondary">บาท</span>
+            {formatCurrency(savingsTarget).replace('฿', '')} <span className="text-xl font-bold text-brand-secondary">บาท</span>
           </h2>
         </div>
         
         <div className="flex flex-col items-start md:items-end w-full md:w-auto">
-          <div className="flex items-center gap-2 mb-2">
-            <span className="text-[10px] font-bold px-2 py-1 bg-emerald-50 text-emerald-700 rounded-full">สะสมแล้ว {percentage.toFixed(1)}%</span>
+          <div className="flex items-center gap-2 mb-2 text-[10px] font-bold">
+            <span className="px-2 py-1 bg-emerald-50 text-emerald-700 rounded-full">สะสมแล้ว {percentage.toFixed(1)}%</span>
             {remaining > 0 && (
-               <span className="text-[10px] font-bold px-2 py-1 bg-orange-50 text-orange-700 rounded-full animate-bounce">ขาดอีก {formatCurrency(remaining)}</span>
+               <span className="px-2 py-1 bg-orange-50 text-orange-700 rounded-full animate-bounce">ขาดอีก {formatCurrency(remaining)}</span>
             )}
           </div>
           <div className="text-right">
              <p className="text-[10px] font-bold text-brand-muted uppercase tracking-widest leading-none">ความมั่งคั่งปัจจุบัน</p>
-             <p className="text-2xl font-black text-brand-text">{formatCurrency(current)}</p>
+             <p className="text-2xl font-black text-brand-text">{formatCurrency(totalWealth)}</p>
           </div>
         </div>
       </div>
 
       <div className="relative z-10">
         <div className="flex justify-between items-center mb-2">
-          <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest">Progress</p>
-          <p className="text-[10px] font-bold text-orange-600 uppercase tracking-widest">Target Remaining</p>
+          <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest leading-none">Progress</p>
+          <p className="text-[10px] font-bold text-orange-600 uppercase tracking-widest leading-none">Target Remaining</p>
         </div>
         <div className="h-4 w-full bg-brand-surface rounded-full overflow-hidden border border-brand-border/50 shadow-inner">
           <motion.div 

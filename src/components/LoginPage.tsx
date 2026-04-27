@@ -1,10 +1,22 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { ShieldCheck, TrendingUp, Wallet, ArrowRight } from 'lucide-react';
+import { ShieldCheck, TrendingUp, Wallet, ArrowRight, RefreshCw } from 'lucide-react';
 import { useFirebase } from './FirebaseProvider';
 
 export default function LoginPage() {
   const { signIn } = useFirebase();
+  const [isAttemptingSignIn, setIsAttemptingSignIn] = React.useState(false);
+
+  const handleSignIn = async () => {
+    if (isAttemptingSignIn) return;
+    setIsAttemptingSignIn(true);
+    try {
+      await signIn();
+    } finally {
+      // Small delay to prevent flickering if redirected quickly
+      setTimeout(() => setIsAttemptingSignIn(false), 2000);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-brand-bg flex items-center justify-center p-6 selection:bg-blue-100">
@@ -35,12 +47,19 @@ export default function LoginPage() {
 
           <div className="p-8">
             <button 
-              onClick={signIn}
-              className="w-full bg-brand-text text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-3 hover:bg-slate-800 transition-all group active:scale-[0.98]"
+              onClick={handleSignIn}
+              disabled={isAttemptingSignIn}
+              className="w-full bg-brand-text text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-3 hover:bg-slate-800 transition-all group active:scale-[0.98] disabled:opacity-50 disabled:cursor-wait"
             >
-              <img src="https://www.google.com/favicon.ico" className="w-4 h-4" alt="Google" />
-              เข้าสู่ระบบด้วย Google
-              <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+              {isAttemptingSignIn ? (
+                <RefreshCw size={20} className="animate-spin" />
+              ) : (
+                <>
+                  <img src="https://www.google.com/favicon.ico" className="w-4 h-4" alt="Google" />
+                  เข้าสู่ระบบด้วย Google
+                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                </>
+              )}
             </button>
             <p className="text-[10px] text-center text-brand-muted mt-6 uppercase tracking-widest font-bold">
               Secure Data Node: epj-project-instance

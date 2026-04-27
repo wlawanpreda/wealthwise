@@ -4,28 +4,34 @@
  */
 
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
-import { CSRBreakdown, CSRCategory } from '../types';
-import { CSR_TARGETS, USER_INCOME } from '../constants';
+import { CSRCategory } from '../types';
 import { formatCurrency } from '../lib/utils';
+import { useFinancial } from '../context/FinancialContext';
 
 const COLORS = {
-  [CSRCategory.CONSTANT]: '#344054', // Dark Slate
-  [CSRCategory.SPENDING]: '#2563EB', // Blue 600
-  [CSRCategory.RESERVE]: '#10B981',  // Emerald 500
+  [CSRCategory.CONSTANT]: '#1e293b', // Dark Slate
+  [CSRCategory.SPENDING]: '#3b82f6', // Blue 500
+  [CSRCategory.RESERVE]: '#10b981',  // Emerald 500
 };
 
 const LABEL_MAP = {
-  [CSRCategory.CONSTANT]: 'คงที่ (Constant)',
-  [CSRCategory.SPENDING]: 'ใช้จ่าย (Spending)',
-  [CSRCategory.RESERVE]: 'สำรอง (Reserve)',
+  [CSRCategory.CONSTANT]: 'คงที่',
+  [CSRCategory.SPENDING]: 'ใช้จ่าย',
+  [CSRCategory.RESERVE]: 'สำรอง',
 };
 
-export default function CSRChart({ actual, income }: { actual: CSRBreakdown; income: number }) {
-  const data = Object.entries(actual).map(([name, value]) => ({
-    name: LABEL_MAP[name as CSRCategory] || name,
-    value,
-    target: CSR_TARGETS[name as CSRCategory] * income,
-  }));
+export default function CSRChart() {
+  const { constantAmount, spendingAmount, reserveAmount } = useFinancial();
+
+  const data = [
+    { name: LABEL_MAP[CSRCategory.CONSTANT], value: constantAmount, category: CSRCategory.CONSTANT },
+    { name: LABEL_MAP[CSRCategory.SPENDING], value: spendingAmount, category: CSRCategory.SPENDING },
+    { name: LABEL_MAP[CSRCategory.RESERVE], value: reserveAmount, category: CSRCategory.RESERVE },
+  ].filter(d => d.value > 0);
+
+  if (data.length === 0) {
+    return <div className="h-[240px] flex items-center justify-center text-[10px] text-brand-muted uppercase font-bold tracking-widest">ยังไม่มีข้อมูลการจัดสรร</div>;
+  }
 
   return (
     <div className="h-[240px] w-full">
@@ -42,24 +48,24 @@ export default function CSRChart({ actual, income }: { actual: CSRBreakdown; inc
             stroke="none"
           >
             {data.map((entry, index) => (
-              <Cell key={`cell-${index}`} fill={COLORS[Object.keys(LABEL_MAP).find(key => LABEL_MAP[key as CSRCategory] === entry.name) as CSRCategory]} />
+              <Cell key={`cell-${index}`} fill={COLORS[entry.category]} />
             ))}
           </Pie>
           <Tooltip 
             contentStyle={{ 
-              borderRadius: '12px', 
-              border: '1px solid #EAECF0', 
-              boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+              borderRadius: '20px', 
+              border: 'none', 
+              boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
               fontSize: '11px',
-              fontFamily: 'Inter'
+              fontFamily: 'inherit'
             }}
-            itemStyle={{ fontWeight: 'bold' }}
+            formatter={(val: number) => [formatCurrency(val), 'Amount']}
           />
           <Legend 
             verticalAlign="bottom" 
             height={36}
             iconType="circle"
-            formatter={(value) => <span className="text-[10px] font-bold text-brand-muted uppercase tracking-widest">{value}</span>}
+            formatter={(value) => <span className="text-[9px] font-black text-brand-muted uppercase tracking-widest">{value}</span>}
           />
         </PieChart>
       </ResponsiveContainer>

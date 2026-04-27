@@ -22,6 +22,7 @@ export interface Liability {
   totalAmount: number;
   monthlyPayment: number;
   dueDate?: string;
+  interestRate?: number;
 }
 
 export interface Transaction {

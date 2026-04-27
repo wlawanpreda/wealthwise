@@ -127,7 +127,10 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
   const signIn = async () => {
     try {
       await signInWithGoogle();
-    } catch (error) {
+    } catch (error: any) {
+      if (error.code === 'auth/cancelled-popup-request') {
+        return;
+      }
       console.error("Sign in failed:", error);
     }
   };

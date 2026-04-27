@@ -56,12 +56,41 @@
       },
       "required": ["id", "timestamp", "type", "amount"]
     },
+    "FinancialSnapshot": {
+      "title": "Financial Snapshot",
+      "description": "Historical record of financial status",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "month": { "type": "string" },
+        "timestamp": { "type": "number" },
+        "totalWealth": { "type": "number" },
+        "totalDebt": { "type": "number" },
+        "netWorth": { "type": "number" },
+        "savingsRate": { "type": "number" }
+      },
+      "required": ["id", "month", "timestamp", "totalWealth", "totalDebt", "netWorth", "savingsRate"]
+    },
+    "IncomeProjection": {
+      "title": "Income Projection",
+      "description": "Planned changes in income",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "monthlyAmountChange": { "type": "number" },
+        "startDate": { "type": "string" },
+        "type": { "type": "string", "enum": ["increase", "decrease"] }
+      },
+      "required": ["id", "name", "monthlyAmountChange", "startDate", "type"]
+    },
     "FinancialPlan": {
       "title": "Financial Plan",
       "description": "A user's complete financial state",
       "type": "object",
       "properties": {
         "income": { "type": "number" },
+        "savingsTarget": { "type": "number" },
         "allocations": { 
           "type": "array",
           "items": { "$ref": "#/entities/BudgetAllocation" }
@@ -73,6 +102,14 @@
         "emergencyFunds": { 
           "type": "array",
           "items": { "$ref": "#/entities/FinancialAccount" }
+        },
+        "history": {
+          "type": "array",
+          "items": { "$ref": "#/entities/FinancialSnapshot" }
+        },
+        "projections": {
+          "type": "array",
+          "items": { "$ref": "#/entities/IncomeProjection" }
         }
       },
       "required": ["income", "allocations", "liabilities", "emergencyFunds"]
