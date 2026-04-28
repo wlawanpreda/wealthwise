@@ -187,113 +187,142 @@ export default function App() {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col overflow-y-auto">
-        <div className="p-4 md:p-8 max-w-6xl mx-auto w-full flex flex-col gap-6 md:gap-8 flex-1">
-          {activeTab === 'overview' ? (
-            <>
-              {/* Header Metric */}
-              <WealthProgress />
-              
-              {/* Additional Action for monthly record */}
-              <div className="flex justify-end -mt-4">
-                <Button 
-                  variant="surface" 
-                  size="sm" 
-                  className="gap-2 text-emerald-700 hover:bg-emerald-600 hover:text-white group"
-                  onClick={takeSnapshot}
-                >
-                  <HistoryIcon size={14} className="group-hover:rotate-[-45deg] transition-transform" />
-                  บันทึกประวัติอัตโนมัติ
-                </Button>
-              </div>
+      <main className="flex-1 flex flex-col overflow-y-auto blueprint-grid bg-fixed">
+        <div className="p-4 md:p-8 max-w-6xl mx-auto w-full flex flex-col gap-6 md:gap-10 flex-1 relative z-10">
+          <AnimatePresence mode="wait">
+            <motion.div 
+              key={activeTab}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+              className="flex flex-col gap-6 md:gap-10"
+            >
+              {activeTab === 'overview' ? (
+                <>
+                  {/* Header Metric */}
+                  <WealthProgress />
+                  
+                  {/* Additional Action for monthly record */}
+                  <div className="flex justify-end -mt-6">
+                    <Button 
+                      variant="surface" 
+                      size="sm" 
+                      className="gap-2 text-blue-700 font-black uppercase tracking-widest border-blue-600/10 group h-10 px-6 rounded-xl hover:bg-blue-600 hover:text-white"
+                      onClick={takeSnapshot}
+                    >
+                      <HistoryIcon size={14} className="group-hover:rotate-[-45deg] transition-transform" />
+                      Generate Wealth Snapshot
+                    </Button>
+                  </div>
 
-              {/* Financial Roadmap Milestones */}
-              <FinancialMilestones />
+                  {/* Financial Roadmap Milestones */}
+                  <FinancialMilestones />
 
-              {/* CSR Allocation Cards */}
-              <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <CSRCard 
-                  label="Constant (คงที่)" 
-                  value={csr[CSRCategory.CONSTANT]} 
-                  limit={(income || 0) * 0.5} 
-                  targetLabel="50%"
-                  status={csr[CSRCategory.CONSTANT] <= (income || 0) * 0.5 ? "ปกติ" : "เกินงบ"}
-                  statusColor={csr[CSRCategory.CONSTANT] <= (income || 0) * 0.5 ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"}
-                  description="ค่าใช้จ่ายคงที่ ภาระผ่อน พ่อแม่"
-                />
-                <CSRCard 
-                  label="Spending (ใช้จ่าย)" 
-                  value={csr[CSRCategory.SPENDING]} 
-                  limit={(income || 0) * 0.3} 
-                  targetLabel="30%"
-                  status={csr[CSRCategory.SPENDING] <= (income || 0) * 0.3 ? "เหมาะสม" : "เริ่มเยอะ"}
-                  statusColor={csr[CSRCategory.SPENDING] <= (income || 0) * 0.3 ? "bg-blue-50 text-blue-700" : "bg-orange-50 text-orange-700"}
-                  description="อาหาร เดินทาง ไลฟ์สไตล์"
-                />
-                <CSRCard 
-                  label="Reserve (สำรอง)" 
-                  value={csr[CSRCategory.RESERVE]} 
-                  limit={(income || 0) * 0.2} 
-                  targetLabel="20%"
-                  status={csr[CSRCategory.RESERVE] >= (income || 0) * 0.2 ? "ยอดเยี่ยม" : "ควรเพิ่ม"}
-                  statusColor={csr[CSRCategory.RESERVE] >= (income || 0) * 0.2 ? "bg-emerald-50 text-emerald-700" : "bg-orange-50 text-orange-700"}
-                  description="ลงทุน ประกัน เงินออม"
-                />
-              </section>
+                  {/* CSR Allocation Cards */}
+                  <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <CSRCard 
+                      label="Constant (คงที่)" 
+                      value={csr[CSRCategory.CONSTANT]} 
+                      limit={(income || 0) * 0.5} 
+                      targetLabel="50%"
+                      status={csr[CSRCategory.CONSTANT] <= (income || 0) * 0.5 ? "OPTIMAL" : "OVER BUDGET"}
+                      statusColor={csr[CSRCategory.CONSTANT] <= (income || 0) * 0.5 ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"}
+                      description="Fixed Costs / Obligations / Dependents"
+                    />
+                    <CSRCard 
+                      label="Spending (ใช้จ่าย)" 
+                      value={csr[CSRCategory.SPENDING]} 
+                      limit={(income || 0) * 0.3} 
+                      targetLabel="30%"
+                      status={csr[CSRCategory.SPENDING] <= (income || 0) * 0.3 ? "BALANCED" : "CAUTION"}
+                      statusColor={csr[CSRCategory.SPENDING] <= (income || 0) * 0.3 ? "bg-blue-50 text-blue-700" : "bg-orange-50 text-orange-700"}
+                      description="Food / Transit / Lifestyle / Hobbies"
+                    />
+                    <CSRCard 
+                      label="Reserve (สำรอง)" 
+                      value={csr[CSRCategory.RESERVE]} 
+                      limit={(income || 0) * 0.2} 
+                      targetLabel="20%"
+                      status={csr[CSRCategory.RESERVE] >= (income || 0) * 0.2 ? "EXCELLENT" : "INSUFFICIENT"}
+                      statusColor={csr[CSRCategory.RESERVE] >= (income || 0) * 0.2 ? "bg-emerald-50 text-emerald-700" : "bg-orange-50 text-orange-700"}
+                      description="Investments / Insurance / Emergency"
+                    />
+                  </section>
 
-              {/* 4-Pillar Grid */}
-              <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {pillars.map((p, i) => (
-                  <PillarCard key={`pillar-${i}`} pillar={p} />
-                ))}
-              </section>
+                  {/* 4-Pillar Grid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                    {pillars.map((p, i) => (
+                      <PillarCard key={`pillar-${i}`} pillar={p} />
+                    ))}
+                  </div>
 
-              {/* Visualization & Quick Stats */}
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                <Card className="lg:col-span-4 overflow-hidden">
-                  <h3 className="text-sm font-bold text-brand-muted uppercase tracking-widest mb-6 border-b border-brand-border pb-4">สมดุลการจัดสรรงบ</h3>
-                  <CSRChart />
-                </Card>
-                <div className="lg:col-span-8 flex flex-col gap-6">
-                  <Card className="overflow-hidden" padding="none">
-                    <h3 className="text-sm font-bold text-brand-muted uppercase tracking-widest p-6 border-b border-brand-border">สรุปหนี้สินรายเดือน</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-6">
-                      {liabilities.map(l => (
-                        <div key={l.id} className="flex justify-between items-center p-3 bg-brand-surface rounded-lg border border-brand-border/30">
-                          <div>
-                            <p className="text-xs font-bold text-brand-text">{l.name}</p>
-                            <p className="text-[10px] text-brand-muted uppercase tracking-wider">ผ่อนคืนทุกวันที่ {l.dueDate}</p>
-                          </div>
-                          <p className="text-sm font-bold text-blue-600">{formatCurrency(l.monthlyPayment)}</p>
+                  {/* Visualization & Quick Stats */}
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
+                    <Card className="lg:col-span-4 overflow-hidden border-brand-border" padding="none">
+                      <div className="p-6 border-b border-brand-border bg-brand-bg/5 flex items-center justify-between">
+                         <h3 className="text-[10px] font-black text-brand-muted uppercase tracking-[0.2em]">Resource Allocation</h3>
+                         <div className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse" />
+                      </div>
+                      <div className="p-6">
+                        <CSRChart />
+                      </div>
+                    </Card>
+                    <div className="lg:col-span-8 flex flex-col gap-8">
+                      <Card className="overflow-hidden border-brand-border" padding="none">
+                        <div className="p-6 border-b border-brand-border bg-brand-bg/5">
+                           <h3 className="text-[10px] font-black text-brand-muted uppercase tracking-[0.2em]">Monthly Debt Maintenance</h3>
                         </div>
-                      ))}
-                      {liabilities.length === 0 && <p className="text-xs text-brand-muted col-span-full py-4 text-center">ไม่มีข้อมูลหนี้สิน</p>}
-                    </div>
-                  </Card>
-                  <Card className="overflow-hidden" padding="none">
-                    <h3 className="text-sm font-bold text-brand-muted uppercase tracking-widest p-6 border-b border-brand-border">เงินสำรองฉุกเฉิน</h3>
-                    <div className="flex flex-wrap gap-4 p-6">
-                       {accounts.filter(a => a.isEmergencyFund).map(f => (
-                        <div key={f.id} className="flex-1 min-w-[200px] p-4 bg-brand-surface rounded-xl border border-brand-border/30">
-                          <p className="text-[10px] font-bold text-emerald-600 mb-1 uppercase tracking-widest">{f.name}</p>
-                          <p className="text-xl font-bold mb-1">{formatCurrency(f.amount)}</p>
-                          <p className="text-[10px] text-brand-muted font-bold uppercase">{f.purpose || 'Emergency Fund'}</p>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-8">
+                          {liabilities.map(l => (
+                            <div key={l.id} className="flex justify-between items-center p-4 bg-brand-bg/30 rounded-xl border border-brand-border/30 hover:border-blue-600/30 transition-colors group">
+                              <div className="flex items-center gap-4">
+                                <div className="w-1.5 h-10 bg-orange-200 rounded-full group-hover:bg-orange-500 transition-colors" />
+                                <div>
+                                  <p className="text-xs font-black text-brand-text uppercase tracking-wider">{l.name}</p>
+                                  <p className="text-[10px] text-brand-muted font-bold">DUE DATE: {l.dueDate}</p>
+                                </div>
+                              </div>
+                              <p className="text-base font-mono font-black text-blue-600">{formatCurrency(l.monthlyPayment)}</p>
+                            </div>
+                          ))}
+                          {liabilities.length === 0 && <p className="text-xs text-brand-muted col-span-full py-8 text-center font-bold uppercase tracking-widest bg-brand-bg/20 rounded-xl">No Debt Obligations Found</p>}
                         </div>
-                      ))}
-                      {accounts.filter(a => a.isEmergencyFund).length === 0 && <p className="text-xs text-brand-muted w-full py-4 text-center">ไม่มีบัญชีสำรองฉุกเฉิน</p>}
+                      </Card>
+                      <Card className="overflow-hidden border-brand-border" padding="none">
+                        <div className="p-6 border-b border-brand-border bg-brand-bg/5">
+                           <h3 className="text-[10px] font-black text-brand-muted uppercase tracking-[0.2em]">Emergency Safety Buffer</h3>
+                        </div>
+                        <div className="flex flex-wrap gap-6 p-8">
+                           {accounts.filter(a => a.isEmergencyFund).map(f => (
+                            <div key={f.id} className="flex-1 min-w-[240px] p-5 bg-brand-bg/30 rounded-2xl border border-brand-border/30 relative overflow-hidden group">
+                              <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-20 transition-opacity">
+                                <div className="w-12 h-12 dot-matrix" />
+                              </div>
+                              <p className="text-[10px] font-black text-emerald-600 mb-2 uppercase tracking-[0.15em]">{f.name}</p>
+                              <p className="text-2xl font-black mb-2 font-mono tracking-tighter">{formatCurrency(f.amount)}</p>
+                              <div className="flex items-center gap-2">
+                                <div className="w-1 h-1 bg-emerald-500 rounded-full" />
+                                <p className="text-[9px] text-brand-muted font-black uppercase tracking-widest">{f.purpose || 'Emergency Fund'}</p>
+                              </div>
+                            </div>
+                          ))}
+                          {accounts.filter(a => a.isEmergencyFund).length === 0 && <p className="text-xs text-brand-muted w-full py-8 text-center font-bold uppercase tracking-widest bg-brand-bg/20 rounded-xl">No Safety Buffer Configured</p>}
+                        </div>
+                      </Card>
                     </div>
-                  </Card>
-                </div>
-              </div>
-            </>
-          ) : activeTab === 'trends' ? (
-            <TrendDashboard /> 
-          ) : (
-            <FinancialPlanner 
-               isExternalSyncing={isExternalSyncing}
-               onSyncExternal={syncExternalInvestments}
-            />
-          )}
+                  </div>
+                </>
+              ) : activeTab === 'trends' ? (
+                <TrendDashboard /> 
+              ) : (
+                <FinancialPlanner 
+                   isExternalSyncing={isExternalSyncing}
+                   onSyncExternal={syncExternalInvestments}
+                />
+              )}
+            </motion.div>
+          </AnimatePresence>
 
           {/* Planning Header Footer */}
           <footer className="bg-brand-text text-white p-4 md:p-5 rounded-2xl flex flex-col md:flex-row items-stretch md:items-center gap-4 md:gap-8 mt-auto overflow-hidden">

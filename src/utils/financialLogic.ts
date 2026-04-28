@@ -29,44 +29,81 @@ export function evaluatePillars(
 
   // 1. สภาพคล่อง (Liquidity/Cash Flow)
   const spendingRatio = csr[CSRCategory.SPENDING] / (income || 1);
+  const liquidityStatus = spendingRatio > 0.4 ? 'Critical' : spendingRatio > 0.35 ? 'Warning' : 'Healthy';
+  let liquidityAdvice = '';
+  if (liquidityStatus === 'Critical') {
+    liquidityAdvice = ' วิกฤต! ตัดงบฟุ่มเฟือยด่วน หรือพิจารณาลดรายจ่ายคงที่';
+  } else if (liquidityStatus === 'Warning') {
+    liquidityAdvice = ' เริ่มตึงตัว! แนะนำคุมงบ Spending ไม่เกิน 30%';
+  } else {
+    liquidityAdvice = ' เยี่ยม! มีกระแสเงินสดหมุนเวียนได้ดี';
+  }
+
   pillars.push({
     name: 'สภาพคล่อง',
     score: Math.max(0, 100 - (spendingRatio > 0.35 ? (spendingRatio - 0.35) * 500 : 0)),
-    status: spendingRatio > 0.4 ? 'Critical' : spendingRatio > 0.35 ? 'Warning' : 'Healthy',
-    insight: `งบใช้จ่าย ${(spendingRatio * 100).toFixed(1)}% ของรายได้ ${(liquidity > 0 ? `เหลือกระแสเงินสด ${liquidity.toLocaleString()} บาท` : 'งบประมาณตึงตัว')}`,
+    status: liquidityStatus,
+    insight: `งบใช้จ่าย ${(spendingRatio * 100).toFixed(1)}% ของรายได้${liquidityAdvice}`,
   });
 
   // 2. หนี้สิน (Debt Management)
   const totalMonthlyDebt = liabilities.reduce((sum, l) => sum + l.monthlyPayment, 0);
   const dti = totalMonthlyDebt / (income || 1);
+  const debtStatus = dti > 0.45 ? 'Critical' : dti > 0.35 ? 'Warning' : 'Healthy';
+  let debtAdvice = '';
+  if (debtStatus === 'Critical') {
+    debtAdvice = ' แนะนำใช้แผน Snowball (ปิดยอดเล็ก) หรือ Avalanche (ปิดดอกเบี้ยสูง)';
+  } else if (debtStatus === 'Warning') {
+    debtAdvice = ' ภาระสูง! ระวังการก่อหนี้ใหม่ และเร่งโปะหนี้ดอกเบี้ยแพง';
+  } else {
+    debtAdvice = ' ภาระหนี้เหมาะสม จัดการได้ดี';
+  }
+
   pillars.push({
     name: 'หนี้สิน',
     score: Math.max(0, 100 - (dti > 0.35 ? (dti - 0.35) * 400 : 0)),
-    status: dti > 0.45 ? 'Critical' : dti > 0.35 ? 'Warning' : 'Healthy',
-    insight: `DTI อยู่ที่ ${(dti * 100).toFixed(1)}% (ยอดผ่อน ${totalMonthlyDebt.toLocaleString()}.-/ด.)`,
+    status: debtStatus,
+    insight: `DTI ${(dti * 100).toFixed(1)}% (ผ่อน ${totalMonthlyDebt.toLocaleString()}.-)${debtAdvice}`,
   });
 
   // 3. ความมั่งคั่ง (Wealth Growth / Reserve)
   const reserveRatio = csr[CSRCategory.RESERVE] / (income || 1);
   const totalEmergency = accounts.filter(a => a.isEmergencyFund).reduce((sum, f) => sum + f.amount, 0);
   const monthsOfBuffer = totalEmergency / (csr[CSRCategory.CONSTANT] + csr[CSRCategory.SPENDING] || 1);
+  const wealthStatus = reserveRatio < 0.1 || monthsOfBuffer < 3 ? 'Warning' : reserveRatio < 0.05 || monthsOfBuffer < 1 ? 'Critical' : 'Healthy';
   
+  let wealthAdvice = '';
+  if (monthsOfBuffer < 3) {
+    wealthAdvice = ' สำรองน้อย! เน้นเก็บออมให้ครบ 3-6 เดือนก่อนลงทุนเสี่ยง';
+  } else if (reserveRatio < 0.15) {
+    wealthAdvice = ' แนะนำเพิ่มสัดส่วนออม/ลงทุนเป็น 20% เพื่อความมั่งคั่ง';
+  } else {
+    wealthAdvice = ' รักษาระดับออมได้ดี เตรียมพร้อมรับทุกสถานการณ์';
+  }
+
   pillars.push({
     name: 'ความมั่งคั่ง',
     score: Math.min(100, (reserveRatio / 0.2) * 100),
-    status: reserveRatio < 0.1 || monthsOfBuffer < 3 ? 'Warning' : 'Healthy',
-    insight: `เงินสำรองครอบคลุม ${monthsOfBuffer.toFixed(1)} เดือน (เป้าหมาย 6 เดือน)`,
+    status: wealthStatus,
+    insight: `เงินสำรอง ${monthsOfBuffer.toFixed(1)} เดือน${wealthAdvice}`,
   });
 
   // 4. การประกันความเสี่ยง (Risk Protection)
   const hasInsurance = allocations.some(a => a.name.includes('ประกัน') || a.name.toLowerCase().includes('insurance'));
+  let riskAdvice = '';
+  if (!hasInsurance) {
+    riskAdvice = ' แนะนำเริ่มประกันสุขภาพ/อุบัติเหตุเพื่อลดความเสี่ยงเงินออม';
+  } else {
+    riskAdvice = ' มีพื้นฐานการป้องกันความเสี่ยงแล้ว';
+  }
+
   pillars.push({
     name: 'การประกันความเสี่ยง',
     score: hasInsurance ? 95 : 40,
     status: hasInsurance ? 'Healthy' : 'Critical',
     insight: hasInsurance 
-      ? 'จัดสรรงบประกันเรียบร้อย' 
-      : 'แนะนำให้จัดสรร 5-10% สำหรับประกัน',
+      ? `จัดสรรงบประกันแล้ว${riskAdvice}` 
+      : `แนะนำจัดสรร 5-10% สำหรับประกัน${riskAdvice}`,
   });
 
   return pillars;

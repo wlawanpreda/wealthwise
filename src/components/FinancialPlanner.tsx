@@ -252,44 +252,44 @@ export default function FinancialPlanner({
               <Input 
                 label="รายได้สุทธิ / เดือน"
                 type="number"
-                value={income || ''}
+                value={income ?? ''}
                 onChange={(e) => setIncome(Number(e.target.value))}
                 leftIcon={<span className="font-bold">฿</span>}
                 error={income <= 0 ? "กรุณาระบุรายได้ที่มากกว่า 0" : undefined}
-                className="text-xl font-bold"
+                className="text-base md:text-xl font-black"
               />
               <Input 
                 label="เป้าหมายเงินออม (ทั้งหมด)"
                 type="number"
-                value={savingsTarget || ''}
+                value={savingsTarget ?? ''}
                 onChange={(e) => setSavingsTarget(Number(e.target.value))}
                 leftIcon={<span className="font-bold text-emerald-600">฿</span>}
-                className="text-xl font-bold text-emerald-700"
+                className="text-base md:text-xl font-black text-emerald-700"
               />
             </div>
           </div>
 
-          <div className="bg-brand-surface p-6 rounded-3xl border border-brand-border flex items-center justify-between gap-4">
+          <div className="bg-brand-surface p-4 md:p-6 rounded-3xl border border-brand-border flex flex-row sm:flex-row items-center justify-between gap-2 md:gap-4 overflow-hidden">
              <div className="text-center flex-1 min-w-0">
-               <p className="text-[9px] font-black text-brand-muted uppercase tracking-widest mb-1 truncate">ทรัพย์สินรวม</p>
-               <p className="text-xl font-black text-brand-text truncate">
+               <p className="text-[8px] md:text-[9px] font-black text-brand-muted uppercase tracking-widest mb-1 truncate">ทรัพย์สินรวม</p>
+               <p className="text-sm md:text-xl font-black text-brand-text truncate">
                  {formatCurrency(totalWealth)}
                </p>
              </div>
-             <div className="w-px h-10 bg-brand-border shrink-0" />
+             <div className="w-px h-8 md:h-10 bg-brand-border shrink-0" />
              <div className="text-center flex-1 min-w-0">
-               <p className="text-[9px] font-black text-brand-muted uppercase tracking-widest mb-1 truncate">ความมั่งคั่งสุทธิ</p>
+               <p className="text-[8px] md:text-[9px] font-black text-brand-muted uppercase tracking-widest mb-1 truncate">มั่งคั่งสุทธิ</p>
                <p className={cn(
-                 "text-xl font-black truncate", 
+                 "text-sm md:text-xl font-black truncate", 
                  netWorth >= 0 ? "text-emerald-600" : "text-red-600"
                )}>
                  {formatCurrency(netWorth)}
                </p>
              </div>
-             <div className="w-px h-10 bg-brand-border shrink-0" />
+             <div className="w-px h-8 md:h-10 bg-brand-border shrink-0" />
              <div className="text-center flex-1 min-w-0">
-               <p className="text-[9px] font-black text-brand-muted uppercase tracking-widest mb-1 truncate">อัตราออม</p>
-               <p className="text-xl font-black text-blue-600 truncate">
+               <p className="text-[8px] md:text-[9px] font-black text-brand-muted uppercase tracking-widest mb-1 truncate">อัตราออม</p>
+               <p className="text-sm md:text-xl font-black text-blue-600 truncate">
                  {savingsRate.toFixed(1)}%
                </p>
              </div>
@@ -370,14 +370,14 @@ export default function FinancialPlanner({
                         <Input 
                           containerClassName="flex-1"
                           placeholder="รายการ..."
-                          value={alloc.name}
+                          value={alloc.name ?? ''}
                           onChange={(e) => setAllocations(prev => prev.map(a => a.id === alloc.id ? { ...a, name: e.target.value } : a))}
                         />
                         <div className="relative w-28 group">
                           <Input 
                             type="number"
                             placeholder="บาท"
-                            value={alloc.amount || ''}
+                            value={alloc.amount ?? ''}
                             onChange={(e) => setAllocations(prev => prev.map(a => a.id === alloc.id ? { ...a, amount: Number(e.target.value) } : a))}
                             className="font-bold pr-8"
                           />
@@ -496,7 +496,7 @@ export default function FinancialPlanner({
                   <td className="px-6 py-4">
                     <Input 
                       variant="ghost"
-                      value={debt.name}
+                      value={debt.name ?? ''}
                       onChange={(e) => setLiabilities(prev => prev.map(l => l.id === debt.id ? { ...l, name: e.target.value } : l))}
                       placeholder="ระบุชื่อหนี้..."
                       className="font-bold bg-transparent"
@@ -506,7 +506,7 @@ export default function FinancialPlanner({
                   <td className="px-6 py-4">
                     <Input 
                       type="number"
-                      value={debt.totalAmount || ''}
+                      value={debt.totalAmount ?? ''}
                       onChange={(e) => setLiabilities(prev => prev.map(l => l.id === debt.id ? { ...l, totalAmount: Number(e.target.value) } : l))}
                       className="text-brand-secondary bg-transparent"
                     />
@@ -514,7 +514,7 @@ export default function FinancialPlanner({
                   <td className="px-6 py-4">
                     <Input 
                       type="number"
-                      value={debt.interestRate || ''}
+                      value={debt.interestRate ?? ''}
                       onChange={(e) => setLiabilities(prev => prev.map(l => l.id === debt.id ? { ...l, interestRate: Number(e.target.value) } : l))}
                       className="text-brand-text bg-transparent"
                       placeholder="0"
@@ -523,7 +523,7 @@ export default function FinancialPlanner({
                   <td className="px-6 py-4">
                     <Input 
                       type="number"
-                      value={debt.monthlyPayment || ''}
+                      value={debt.monthlyPayment ?? ''}
                       onChange={(e) => setLiabilities(prev => prev.map(l => l.id === debt.id ? { ...l, monthlyPayment: Number(e.target.value) } : l))}
                       className="text-red-600 font-black bg-transparent"
                     />
@@ -532,7 +532,7 @@ export default function FinancialPlanner({
                     <div className="flex items-center gap-2">
                        <span className="text-[10px] font-bold text-brand-muted">วันที่</span>
                        <Input 
-                         value={debt.dueDate}
+                         value={debt.dueDate ?? ''}
                          onChange={(e) => setLiabilities(prev => prev.map(l => l.id === debt.id ? { ...l, dueDate: e.target.value } : l))}
                          className="w-12 text-center text-xs p-1 h-8"
                          maxLength={2}
@@ -617,7 +617,7 @@ export default function FinancialPlanner({
                   </div>
                   <Input 
                     type="number"
-                    value={extraPayment || ''}
+                    value={extraPayment ?? ''}
                     onChange={(e) => setExtraPayment(Number(e.target.value))}
                     leftIcon={<span className="font-bold text-blue-600">+</span>}
                     placeholder="ระบุจำนวนเงินที่จ่ายเพิ่มได้..."
@@ -774,7 +774,7 @@ export default function FinancialPlanner({
                       {acc.type === 'Investment' && <TrendingUp size={12} className="text-emerald-500" />}
                       {acc.type === 'Other' && <Circle size={12} className="text-slate-500" />}
                       <Select 
-                        value={acc.type}
+                        value={acc.type ?? 'Savings'}
                         onChange={(e) => setAccounts(prev => prev.map(a => a.id === acc.id ? { ...a, type: e.target.value as any } : a))}
                         className="text-[9px] font-black h-7 px-2"
                       >
@@ -797,7 +797,7 @@ export default function FinancialPlanner({
                     </div>
                     <Input 
                       placeholder="บัญชี / ทรัพย์สิน"
-                      value={acc.name}
+                      value={acc.name ?? ''}
                       onChange={(e) => setAccounts(prev => prev.map(a => a.id === acc.id ? { ...a, name: e.target.value } : a))}
                       className="font-bold text-sm bg-transparent border-none p-0 focus:ring-0"
                     />
@@ -850,7 +850,7 @@ export default function FinancialPlanner({
                 <div className="flex flex-col gap-2">
                    <p className="text-[9px] font-bold text-brand-muted uppercase tracking-widest">วัตถุประสงค์</p>
                    <Input 
-                      value={acc.purpose}
+                      value={acc.purpose ?? ''}
                       onChange={(e) => setAccounts(prev => prev.map(a => a.id === acc.id ? { ...a, purpose: e.target.value } : a))}
                       className="text-xs py-2"
                       placeholder="เช่น ออมระยะยาว..."
@@ -891,7 +891,7 @@ export default function FinancialPlanner({
               <div className="flex flex-col gap-4">
                 <Input 
                   label="ชื่อรายการ"
-                  value={proj.name}
+                  value={proj.name ?? ''}
                   onChange={(e) => setProjections(prev => prev.map(p => p.id === proj.id ? { ...p, name: e.target.value } : p))}
                   placeholder="เช่น โบนัส 2026"
                 />
@@ -899,12 +899,12 @@ export default function FinancialPlanner({
                   <Input 
                     label="Amount"
                     type="number"
-                    value={proj.monthlyAmountChange || ''}
+                    value={proj.monthlyAmountChange ?? ''}
                     onChange={(e) => setProjections(prev => prev.map(p => p.id === proj.id ? { ...p, monthlyAmountChange: Number(e.target.value) } : p))}
                   />
                   <Select 
                     label="ประเภท"
-                    value={proj.type}
+                    value={proj.type ?? 'increase'}
                     onChange={(e) => setProjections(prev => prev.map(p => p.id === proj.id ? { ...p, type: e.target.value as any } : p))}
                   >
                     <option value="increase">เพิ่มขึ้น (+)</option>
@@ -914,7 +914,7 @@ export default function FinancialPlanner({
                 <Input 
                   label="เริ่มตั้งแต่เดือน"
                   type="month"
-                  value={proj.startDate}
+                  value={proj.startDate ?? ''}
                   onChange={(e) => setProjections(prev => prev.map(p => p.id === proj.id ? { ...p, startDate: e.target.value } : p))}
                 />
               </div>
