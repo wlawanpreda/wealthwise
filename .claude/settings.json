@@ -6,6 +6,8 @@
       "Bash(pnpm install --lockfile-only)",
       "Bash(pnpm install --frozen-lockfile)",
       "Bash(pnpm add:*)",
+      "Bash(pnpm clean)",
+      "Bash(pnpm clean:all)",
       "Bash(pnpm dev)",
       "Bash(pnpm dev:*)",
       "Bash(pnpm build)",
