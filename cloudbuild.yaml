@@ -1,0 +1,101 @@
+# ============================================================================
+# Google Cloud Build pipeline → Artifact Registry → Cloud Run
+# Trigger: push to main
+# ============================================================================
+substitutions:
+  _REGION: asia-southeast1
+  _SERVICE: wealthwise
+  _REPO: wealthwise
+  _MIN_INSTANCES: "0"
+  _MAX_INSTANCES: "10"
+  _MEMORY: 512Mi
+  _CPU: "1"
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+  machineType: E2_HIGHCPU_8
+
+steps:
+  # 1. Build the Docker image with public-safe build args
+  - id: build
+    name: gcr.io/cloud-builders/docker
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        docker build \
+          --build-arg NEXT_PUBLIC_FIREBASE_API_KEY="$$NEXT_PUBLIC_FIREBASE_API_KEY" \
+          --build-arg NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN="$$NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN" \
+          --build-arg NEXT_PUBLIC_FIREBASE_PROJECT_ID="$$NEXT_PUBLIC_FIREBASE_PROJECT_ID" \
+          --build-arg NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET="$$NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET" \
+          --build-arg NEXT_PUBLIC_FIREBASE_APP_ID="$$NEXT_PUBLIC_FIREBASE_APP_ID" \
+          --build-arg NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID="$$NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID" \
+          --build-arg NEXT_PUBLIC_FIREBASE_DATABASE_ID="$$NEXT_PUBLIC_FIREBASE_DATABASE_ID" \
+          --build-arg NEXT_PUBLIC_APP_URL="$$NEXT_PUBLIC_APP_URL" \
+          -t ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_SERVICE}:$COMMIT_SHA \
+          -t ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_SERVICE}:latest \
+          .
+    secretEnv:
+      - NEXT_PUBLIC_FIREBASE_API_KEY
+      - NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+      - NEXT_PUBLIC_FIREBASE_PROJECT_ID
+      - NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
+      - NEXT_PUBLIC_FIREBASE_APP_ID
+      - NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
+      - NEXT_PUBLIC_FIREBASE_DATABASE_ID
+      - NEXT_PUBLIC_APP_URL
+
+  # 2. Push to Artifact Registry
+  - id: push
+    name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - --all-tags
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_SERVICE}
+
+  # 3. Deploy to Cloud Run with secrets from Secret Manager
+  - id: deploy
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - ${_SERVICE}
+      - --image=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_SERVICE}:$COMMIT_SHA
+      - --region=${_REGION}
+      - --platform=managed
+      - --allow-unauthenticated
+      - --min-instances=${_MIN_INSTANCES}
+      - --max-instances=${_MAX_INSTANCES}
+      - --memory=${_MEMORY}
+      - --cpu=${_CPU}
+      - --port=3000
+      - --concurrency=80
+      - --timeout=60
+      - --set-secrets=GEMINI_API_KEY=gemini-api-key:latest,FIREBASE_ADMIN_SERVICE_ACCOUNT=firebase-admin-key:latest
+      - --set-env-vars=GEMINI_MODEL=gemini-2.5-flash,RETIRE_TAX_DB_ID=ai-studio-dd59df49-bdc8-4a37-b1db-474d9eb6670d,RETIRE_5_PERCENT_DB_ID=ai-studio-f28f242a-7cd7-4595-a85a-ecaf6d132941,SESSION_COOKIE_NAME=__wealthwise_session,SESSION_MAX_AGE_SECONDS=432000
+
+availableSecrets:
+  secretManager:
+    - versionName: projects/$PROJECT_ID/secrets/firebase-public-api-key/versions/latest
+      env: NEXT_PUBLIC_FIREBASE_API_KEY
+    - versionName: projects/$PROJECT_ID/secrets/firebase-public-auth-domain/versions/latest
+      env: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+    - versionName: projects/$PROJECT_ID/secrets/firebase-public-project-id/versions/latest
+      env: NEXT_PUBLIC_FIREBASE_PROJECT_ID
+    - versionName: projects/$PROJECT_ID/secrets/firebase-public-storage-bucket/versions/latest
+      env: NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
+    - versionName: projects/$PROJECT_ID/secrets/firebase-public-app-id/versions/latest
+      env: NEXT_PUBLIC_FIREBASE_APP_ID
+    - versionName: projects/$PROJECT_ID/secrets/firebase-public-messaging-sender-id/versions/latest
+      env: NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
+    - versionName: projects/$PROJECT_ID/secrets/firebase-public-database-id/versions/latest
+      env: NEXT_PUBLIC_FIREBASE_DATABASE_ID
+    - versionName: projects/$PROJECT_ID/secrets/app-url/versions/latest
+      env: NEXT_PUBLIC_APP_URL
+
+images:
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_SERVICE}:$COMMIT_SHA
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_SERVICE}:latest
+
+timeout: 1200s

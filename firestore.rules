@@ -2,10 +2,14 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Default deny — explicit allow only
     match /{document=**} {
       allow read, write: if false;
     }
 
+    // ----------------------------------------------------------------------
+    // Auth primitives
+    // ----------------------------------------------------------------------
     function isSignedIn() {
       return request.auth != null;
     }
@@ -18,18 +22,27 @@ service cloud.firestore {
       return request.auth.token.email_verified == true;
     }
 
-    function isValidFinancialPlan(data) {
+    // ----------------------------------------------------------------------
+    // Validators
+    // ----------------------------------------------------------------------
+    function isValidPlan(data) {
       return data.keys().hasAll(['income', 'allocations', 'liabilities', 'emergencyFunds'])
-        && data.income is number && data.income >= 0
-        && data.allocations is list && data.allocations.size() <= 100
-        && data.liabilities is list && data.liabilities.size() <= 50
-        && data.emergencyFunds is list && data.emergencyFunds.size() <= 20;
+        && data.income is number && data.income >= 0 && data.income <= 100000000
+        && data.allocations is list && data.allocations.size() <= 50
+        && data.liabilities is list && data.liabilities.size() <= 20
+        && data.emergencyFunds is list && data.emergencyFunds.size() <= 10
+        && (!('savingsTarget' in data.keys()) || (data.savingsTarget is number && data.savingsTarget >= 0))
+        && (!('history' in data.keys()) || (data.history is list && data.history.size() <= 240))
+        && (!('projections' in data.keys()) || (data.projections is list && data.projections.size() <= 30));
     }
 
+    // ----------------------------------------------------------------------
+    // Routes
+    // ----------------------------------------------------------------------
     match /users/{userId} {
       match /plan/current {
         allow get: if isOwner(userId);
-        allow create, update: if isOwner(userId) && verified() && isValidFinancialPlan(request.resource.data);
+        allow create, update: if isOwner(userId) && verified() && isValidPlan(request.resource.data);
         allow delete: if isOwner(userId);
       }
     }

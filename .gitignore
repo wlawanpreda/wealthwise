@@ -1,8 +1,37 @@
+# dependencies
 node_modules/
+.pnpm-store/
+
+# next.js
+.next/
+out/
+next-env.d.ts
+
+# production
 build/
 dist/
+
+# testing
 coverage/
+playwright-report/
+test-results/
+
+# misc
 .DS_Store
 *.log
+*.tsbuildinfo
+
+# env files
 .env*
 !.env.example
+
+# turbo
+.turbo
+
+# vercel
+.vercel
+
+# secrets
+firebase-admin-key.json
+*.pem
+*.key
