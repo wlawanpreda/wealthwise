@@ -7,6 +7,7 @@
     "node": ">=22.11.0"
   },
   "scripts": {
+    "preinstall": "npx --yes only-allow pnpm",
     "dev": "next dev --turbo --port 3000",
     "build": "next build",
     "start": "next start -p ${PORT:-3000}",
@@ -68,5 +69,12 @@
     "tailwindcss": "^4.1.14",
     "typescript": "~5.7.2",
     "vitest": "^2.1.8"
+  },
+  "pnpm": {
+    "overrides": {
+      "@tootallnate/once": ">=3.0.1",
+      "uuid": ">=14.0.0",
+      "postcss@<8.5.10": "^8.5.10"
+    }
   }
 }

@@ -25,8 +25,13 @@
 
 ## Local Development
 
+> **⚠️ Use pnpm only.** A `preinstall` guard blocks `npm install` / `yarn install` —
+> running them aborts with an error. The Vite-era `package-lock.json` you may
+> still see in the parent repo on `main` is from the old stack with known vulns;
+> after this PR merges, only `pnpm-lock.yaml` is authoritative.
+
 ```bash
-# Prereqs: Node 22.11+, pnpm 9, Docker (optional)
+# Prereqs: Node 22.11+, Docker (optional)
 corepack enable && corepack prepare pnpm@9.15.0 --activate
 
 cp .env.example .env.local
