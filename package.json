@@ -19,7 +19,10 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "docker:build": "docker build -t wealthwise:local .",
-    "docker:run": "docker run -p 3000:3000 --env-file .env.local wealthwise:local"
+    "docker:run": "docker run -p 3000:3000 --env-file .env.local wealthwise:local",
+    "docker:up": "docker compose --env-file .env.local up -d --build",
+    "docker:down": "docker compose down",
+    "docker:logs": "docker compose logs -f app"
   },
   "dependencies": {
     "@google/genai": "^1.29.0",

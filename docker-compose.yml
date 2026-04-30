@@ -1,3 +1,9 @@
+# IMPORTANT: docker compose only auto-loads `.env` for ${VAR} substitution in this YAML.
+# Since this project uses `.env.local` (Next.js convention), you MUST run with:
+#
+#   docker compose --env-file .env.local up -d --build
+#
+# Or use the npm script: `pnpm docker:up` (already wired correctly)
 services:
   app:
     build:

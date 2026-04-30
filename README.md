@@ -46,14 +46,18 @@ App runs at http://localhost:3000
 ### Run on Docker
 
 ```bash
-pnpm docker:build
-pnpm docker:run
+pnpm docker:up      # build + run via docker compose, uses .env.local
+pnpm docker:logs    # tail container logs
+pnpm docker:down    # stop + remove
 ```
 
-หรือ
-```bash
-docker compose up --build
-```
+> **⚠️ Don't run `docker compose up` directly** — Compose auto-loads `.env`,
+> not `.env.local`. The `pnpm docker:up` script wraps it with
+> `--env-file .env.local` so `NEXT_PUBLIC_*` build args are populated.
+> If you must invoke compose manually, use:
+> ```bash
+> docker compose --env-file .env.local up -d --build
+> ```
 
 ## Scripts
 
