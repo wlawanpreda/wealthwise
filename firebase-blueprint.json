@@ -69,7 +69,15 @@
         "netWorth": { "type": "number" },
         "savingsRate": { "type": "number" }
       },
-      "required": ["id", "month", "timestamp", "totalWealth", "totalDebt", "netWorth", "savingsRate"]
+      "required": [
+        "id",
+        "month",
+        "timestamp",
+        "totalWealth",
+        "totalDebt",
+        "netWorth",
+        "savingsRate"
+      ]
     },
     "IncomeProjection": {
       "title": "Income Projection",
@@ -91,15 +99,15 @@
       "properties": {
         "income": { "type": "number" },
         "savingsTarget": { "type": "number" },
-        "allocations": { 
+        "allocations": {
           "type": "array",
           "items": { "$ref": "#/entities/BudgetAllocation" }
         },
-        "liabilities": { 
+        "liabilities": {
           "type": "array",
           "items": { "$ref": "#/entities/Liability" }
         },
-        "emergencyFunds": { 
+        "emergencyFunds": {
           "type": "array",
           "items": { "$ref": "#/entities/FinancialAccount" }
         },
