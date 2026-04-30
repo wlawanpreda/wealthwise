@@ -9,11 +9,22 @@ export enum CSRCategory {
   RESERVE = 'Reserve',   // Savings/Investments (20%)
 }
 
+export interface TransferLog {
+  id: string;
+  timestamp: number;
+  amount: number;
+  status: 'Completed' | 'Pending' | 'Error';
+  note?: string;
+}
+
 export interface BudgetAllocation {
   id: string;
   name: string;
   amount: number;
   category: CSRCategory;
+  targetAccountId?: string;
+  isTransferred?: boolean;
+  transferHistory?: TransferLog[];
 }
 
 export interface Liability {

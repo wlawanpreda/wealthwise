@@ -10,6 +10,7 @@ import {
   RefreshCw,
   LayoutDashboard,
   Target,
+  ArrowRightLeft,
   History as HistoryIcon
 } from 'lucide-react';
 import { CSRCategory } from './types';
@@ -20,6 +21,7 @@ import WealthProgress from './components/WealthProgress';
 import FinancialPlanner from './components/FinancialPlanner';
 import FinancialMilestones from './components/FinancialMilestones';
 import TrendDashboard from './components/TrendDashboard';
+import SalaryDistribution from './components/SalaryDistribution';
 import ChatBot from './components/ChatBot';
 import { formatCurrency, cn } from './lib/utils';
 import { useFirebase } from './components/FirebaseProvider';
@@ -40,7 +42,7 @@ export default function App() {
   
   const { isExternalSyncing, syncExternalInvestments, exportJSON } = useFinancialInternal();
 
-  const [activeTab, setActiveTab] = React.useState<'overview' | 'planning' | 'trends'>('overview');
+  const [activeTab, setActiveTab] = React.useState<'overview' | 'planning' | 'trends' | 'distribution'>('overview');
   const [isSidebarOpen, setIsSidebarOpen] = React.useState(false);
 
   if (loading) {
@@ -159,6 +161,12 @@ export default function App() {
             active={activeTab === 'planning'} 
             onClick={() => { setActiveTab('planning'); setIsSidebarOpen(false); }}
             label="วางแผนงบประมาณ/หนี้"
+          />
+          <NavButton 
+            icon={ArrowRightLeft} 
+            active={activeTab === 'distribution'} 
+            onClick={() => { setActiveTab('distribution'); setIsSidebarOpen(false); }}
+            label="จัดการการโอนเงินเดือน"
           />
           <NavButton 
             icon={HistoryIcon} 
@@ -315,6 +323,8 @@ export default function App() {
                 </>
               ) : activeTab === 'trends' ? (
                 <TrendDashboard /> 
+              ) : activeTab === 'distribution' ? (
+                <SalaryDistribution />
               ) : (
                 <FinancialPlanner 
                    isExternalSyncing={isExternalSyncing}
@@ -373,6 +383,13 @@ export default function App() {
           />
           <NavButton 
             mobile
+            icon={ArrowRightLeft} 
+            active={activeTab === 'distribution'} 
+            onClick={() => setActiveTab('distribution')}
+            label="รายการโอน"
+          />
+          <NavButton 
+            mobile
             icon={HistoryIcon} 
             active={activeTab === 'trends'} 
             onClick={() => setActiveTab('trends')}
@@ -395,19 +412,54 @@ function useFinancialInternal() {
     try {
       const extAccounts = await fetchExternalInvestments(user.uid);
       if (extAccounts.length > 0) {
+        let uCount = 0;
+        let aCount = 0;
+
         financial.setAccounts(prev => {
-          const accountMap = new Map(prev.map(a => [a.id, a]));
+          const newAccounts = [...prev];
+          uCount = 0;
+          aCount = 0;
+
           extAccounts.forEach(ext => {
-            if (accountMap.has(ext.id)) {
-              const existing = accountMap.get(ext.id)!;
-              accountMap.set(ext.id, { ...existing, amount: ext.amount });
+            // Find existing by ID or Name
+            const existingIndex = newAccounts.findIndex(a => a.id === ext.id || a.name === ext.name);
+
+            if (existingIndex !== -1) {
+              const existing = newAccounts[existingIndex];
+              const amountDiff = ext.amount - existing.amount;
+              
+              // Only update if there's a change
+              if (amountDiff !== 0) {
+                const newTransaction = {
+                  id: crypto.randomUUID(),
+                  timestamp: Date.now(),
+                  type: (amountDiff > 0 ? 'deposit' : 'withdrawal') as 'deposit' | 'withdrawal',
+                  amount: Math.abs(amountDiff),
+                  note: `Sync from External: ${ext.name}`
+                };
+                
+                newAccounts[existingIndex] = {
+                  ...existing,
+                  amount: ext.amount,
+                  transactions: [newTransaction, ...(existing.transactions || [])]
+                };
+                uCount++;
+              }
             } else {
-              accountMap.set(ext.id, ext);
+              newAccounts.push(ext);
+              aCount++;
             }
           });
-          return Array.from(accountMap.values());
+          
+          return newAccounts;
         });
-        alert(`ซิงค์ข้อมูลสำเร็จ! ปรับปรุง/อัปเดต ${extAccounts.length} รายการลงทุนจากระบบภายนอก`);
+        
+        let message = `ซิงค์ข้อมูลสำเร็จ!`;
+        if (uCount > 0) message += ` อัปเดตยอดเงิน ${uCount} รายการ`;
+        if (aCount > 0) message += ` เพิ่มใหม่ ${aCount} รายการ`;
+        if (uCount === 0 && aCount === 0) message += ` ข้อมูลปัจจุบันเป็นปัจจุบันแล้ว`;
+        
+        alert(message);
       } else {
         alert("ไม่พบข้อมูลการลงทุนในระบบอื่น");
       }
