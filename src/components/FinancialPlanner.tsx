@@ -39,6 +39,41 @@ const PURPOSE_SUGGESTIONS = [
   'เก็บออมทั่วไป'
 ];
 
+
+// Helper component for editable amount with history
+function AccountAmountInput({ 
+  initialAmount, 
+  onAmountChange 
+}: { 
+  initialAmount: number, 
+  onAmountChange: (newAmount: number) => void 
+}) {
+  const [val, setVal] = React.useState(initialAmount.toString());
+  
+  React.useEffect(() => {
+    setVal(initialAmount.toString());
+  }, [initialAmount]);
+
+  const handleBlur = () => {
+    const num = Number(val);
+    if (!isNaN(num) && num !== initialAmount) {
+      onAmountChange(num);
+    } else {
+      setVal(initialAmount.toString());
+    }
+  };
+
+  return (
+    <input 
+      type="number"
+      value={val}
+      onChange={(e) => setVal(e.target.value)}
+      onBlur={handleBlur}
+      className="text-2xl font-black text-brand-text bg-transparent border-none p-0 focus:ring-0 w-32 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+    />
+  );
+}
+
 export default function FinancialPlanner({ 
   isExternalSyncing, 
   onSyncExternal 
@@ -803,12 +838,30 @@ export default function FinancialPlanner({
                     />
                      <div className="flex items-baseline gap-1 mt-4">
                        <span className="text-sm font-black text-brand-text">฿</span>
-                       <p className="text-2xl font-black text-brand-text">
-                         {acc.amount.toLocaleString()}
-                       </p>
+                       <AccountAmountInput 
+                         initialAmount={acc.amount}
+                         onAmountChange={(newAmount) => {
+                           const diff = newAmount - acc.amount;
+                           if (Math.abs(diff) < 0.01) return;
+                           
+                           const transaction = {
+                             id: crypto.randomUUID(),
+                             timestamp: Date.now(),
+                             type: (diff > 0 ? 'deposit' : 'withdrawal') as 'deposit' | 'withdrawal',
+                             amount: Math.abs(diff),
+                             note: 'แก้ไขยอดเงินด้วยตนเอง'
+                           };
+
+                           setAccounts(prev => prev.map(a => 
+                             a.id === acc.id 
+                               ? { ...a, amount: newAmount, transactions: [transaction, ...(a.transactions || [])] } 
+                               : a
+                           ));
+                         }}
+                       />
                        <div className="flex gap-1 ml-4 opacity-0 group-hover:opacity-100 transition-opacity">
-                         <button onClick={() => addTransaction(acc.id, 'deposit')} className="p-1.5 rounded bg-emerald-50 text-emerald-600"><ArrowUpRight size={14} /></button>
-                         <button onClick={() => addTransaction(acc.id, 'withdrawal')} className="p-1.5 rounded bg-orange-50 text-orange-600"><ArrowDownLeft size={14} /></button>
+                         <button onClick={() => addTransaction(acc.id, 'deposit')} className="p-1.5 rounded bg-emerald-50 text-emerald-600" title="ฝากเงิน"><ArrowUpRight size={14} /></button>
+                         <button onClick={() => addTransaction(acc.id, 'withdrawal')} className="p-1.5 rounded bg-orange-50 text-orange-600" title="ถอนเงิน"><ArrowDownLeft size={14} /></button>
                        </div>
                      </div>
                    </div>

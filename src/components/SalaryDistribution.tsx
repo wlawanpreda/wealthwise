@@ -49,25 +49,44 @@ const PickerPortal = ({
     const updateCoords = () => {
       if (isOpen && anchorRef.current) {
         const rect = anchorRef.current.getBoundingClientRect();
-        setCoords({
-          top: rect.bottom, // getBoundingClientRect() is viewport relative
+        const newCoords = {
+          top: rect.bottom,
           left: rect.left,
           width: Math.max(rect.width, 256)
+        };
+        
+        setCoords(prev => {
+          if (!prev || 
+              prev.top !== newCoords.top || 
+              prev.left !== newCoords.left || 
+              prev.width !== newCoords.width) {
+            return newCoords;
+          }
+          return prev;
         });
       }
     };
 
     if (isOpen) {
       updateCoords();
-      // Polling for position changes on animation/layout shifts
-      const interval = setInterval(updateCoords, 100);
+      // Use requestAnimationFrame for smoother and safer updates than polling alone
+      let rafId: number;
+      const poll = () => {
+        updateCoords();
+        rafId = requestAnimationFrame(poll);
+      };
+      
+      rafId = requestAnimationFrame(poll);
       window.addEventListener('resize', updateCoords);
       window.addEventListener('scroll', updateCoords, true);
+      
       return () => {
-        clearInterval(interval);
+        cancelAnimationFrame(rafId);
         window.removeEventListener('resize', updateCoords);
         window.removeEventListener('scroll', updateCoords, true);
       };
+    } else {
+      setCoords(null);
     }
   }, [isOpen, anchorRef]);
 
@@ -348,30 +367,32 @@ export default function SalaryDistribution() {
 
   // Grouped summary of what to transfer to which account
   const accountTransfers = useMemo(() => {
-    const map = new Map<string, { accountName: string; total: number; count: number; items: string[]; purpose: string }>();
+    // Use an object to track unique account IDs for the roadmap
+    const transferMap: Record<string, { accountName: string; total: number; count: number; items: string[]; purpose: string }> = {};
     
     allocations.forEach(alloc => {
       if (alloc.targetAccountId) {
         const account = accounts.find(acc => acc.id === alloc.targetAccountId);
         if (account) {
-          const current = map.get(alloc.targetAccountId) || { 
-            accountName: account.name, 
-            total: 0, 
-            count: 0, 
-            items: [],
-            purpose: account.purpose || ''
-          };
-          map.set(alloc.targetAccountId, {
-            ...current,
-            total: current.total + alloc.amount,
-            count: current.count + 1,
-            items: [...current.items, alloc.name]
-          });
+          if (!transferMap[alloc.targetAccountId]) {
+            transferMap[alloc.targetAccountId] = { 
+              accountName: account.name, 
+              total: 0, 
+              count: 0, 
+              items: [],
+              purpose: account.purpose || ''
+            };
+          }
+          
+          const current = transferMap[alloc.targetAccountId];
+          current.total += alloc.amount;
+          current.count += 1;
+          current.items.push(alloc.name);
         }
       }
     });
     
-    return Array.from(map.entries()).map(([id, data]) => ({ id, ...data }));
+    return Object.entries(transferMap).map(([id, data]) => ({ id, ...data }));
   }, [allocations, accounts]);
 
   const handleCopyTransferContent = useCallback((transfer: any) => {

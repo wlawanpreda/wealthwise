@@ -415,21 +415,25 @@ function useFinancialInternal() {
         let uCount = 0;
         let aCount = 0;
 
+        // Perform the calculation first, then update state once
         financial.setAccounts(prev => {
           const newAccounts = [...prev];
-          uCount = 0;
-          aCount = 0;
+          let localUCount = 0;
+          let localACount = 0;
 
           extAccounts.forEach(ext => {
-            // Find existing by ID or Name
-            const existingIndex = newAccounts.findIndex(a => a.id === ext.id || a.name === ext.name);
+            // Find existing by ID or Name (normalized)
+            const normalizedExtName = ext.name.trim().toLowerCase();
+            const existingIndex = newAccounts.findIndex(a => 
+              a.id === ext.id || a.name.trim().toLowerCase() === normalizedExtName
+            );
 
             if (existingIndex !== -1) {
               const existing = newAccounts[existingIndex];
               const amountDiff = ext.amount - existing.amount;
               
               // Only update if there's a change
-              if (amountDiff !== 0) {
+              if (Math.abs(amountDiff) > 0.01) { // Use a small epsilon for float comparison
                 const newTransaction = {
                   id: crypto.randomUUID(),
                   timestamp: Date.now(),
@@ -443,23 +447,33 @@ function useFinancialInternal() {
                   amount: ext.amount,
                   transactions: [newTransaction, ...(existing.transactions || [])]
                 };
-                uCount++;
+                localUCount++;
               }
             } else {
-              newAccounts.push(ext);
-              aCount++;
+              // Double check against newAccounts list as we iterate
+              if (!newAccounts.some(a => a.id === ext.id || a.name.trim().toLowerCase() === normalizedExtName)) {
+                newAccounts.push(ext);
+                localACount++;
+              }
             }
           });
           
+          // We can't easily return these counts from the updater to use in alert if we want it to be pure,
+          // but for now let's just use the local variables we calculated.
+          // Note: In a production app, we might use a separate effect to show the alert based on state changes.
+          uCount = localUCount;
+          aCount = localACount;
           return newAccounts;
         });
         
-        let message = `ซิงค์ข้อมูลสำเร็จ!`;
-        if (uCount > 0) message += ` อัปเดตยอดเงิน ${uCount} รายการ`;
-        if (aCount > 0) message += ` เพิ่มใหม่ ${aCount} รายการ`;
-        if (uCount === 0 && aCount === 0) message += ` ข้อมูลปัจจุบันเป็นปัจจุบันแล้ว`;
-        
-        alert(message);
+        // Use a small delay for the alert to ensure the state update is processed or just show what we found
+        setTimeout(() => {
+          let message = `ซิงค์ข้อมูลสำเร็จ!`;
+          if (uCount > 0) message += ` อัปเดตยอดเงิน ${uCount} รายการ`;
+          if (aCount > 0) message += ` เพิ่มใหม่ ${aCount} รายการ`;
+          if (uCount === 0 && aCount === 0) message += ` ข้อมูลปัจจุบันเป็นปัจจุบันแล้ว`;
+          alert(message);
+        }, 100);
       } else {
         alert("ไม่พบข้อมูลการลงทุนในระบบอื่น");
       }
