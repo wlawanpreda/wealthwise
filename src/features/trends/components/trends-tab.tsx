@@ -116,7 +116,7 @@ export default function TrendsTab() {
           <History size={48} />
         </div>
         <h3 className="text-xl font-bold text-brand-text mb-2">ยังไม่มีประวัติข้อมูล</h3>
-        <p className="text-sm text-brand-muted mb-8 max-w-sm">
+        <p className="text-base text-brand-text/80 leading-relaxed mb-8 max-w-sm">
           บันทึกสถานะทางการเงินของคุณในแต่ละเดือนเพื่อดูแนวโน้มการเติบโต
         </p>
         <Button onClick={takeSnapshot} size="lg">

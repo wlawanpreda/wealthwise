@@ -50,6 +50,9 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
             ref={ref}
             className={cn(
               "w-full rounded-xl px-3 py-2 text-xs font-bold outline-none transition-all",
+              // Baseline keyboard-focus ring — applies to both variants so transparent
+              // inputs (e.g. table cells) still reveal focus state.
+              "focus-visible:ring-2 focus-visible:ring-blue-500/30 focus-visible:border-blue-500/30",
               variant === "default" &&
                 "bg-brand-surface border border-brand-border focus:ring-2 focus:ring-blue-600/10 focus:border-blue-600/30",
               variant === "ghost" && "bg-transparent border-transparent focus:bg-brand-surface/50",

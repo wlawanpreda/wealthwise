@@ -58,6 +58,14 @@ export function LiabilitiesSection() {
     [debouncedLiabilities, strategy, debouncedExtra],
   );
 
+  // Only render the pie chart for liabilities with a positive balance —
+  // Recharts otherwise paints zero-value slices with thick borders and the
+  // legend ends up showing "ไม่ระบุ ฿0" placeholder rows.
+  const chartLiabilities = React.useMemo(
+    () => liabilities.filter((l) => l.totalAmount > 0),
+    [liabilities],
+  );
+
   const sorted = React.useMemo(() => {
     return [...liabilities].sort((a, b) => {
       let valA: number | string = a[sortKey] ?? "";
@@ -107,13 +115,13 @@ export function LiabilitiesSection() {
         </Button>
       </div>
 
-      {liabilities.length > 0 && (
+      {chartLiabilities.length > 0 && (
         <Card padding="md" className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           <div className="lg:col-span-4 h-[180px]">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
-                  data={liabilities.map((l) => ({
+                  data={chartLiabilities.map((l) => ({
                     name: l.name || "ไม่ระบุชื่อ",
                     value: l.totalAmount,
                   }))}
@@ -122,7 +130,7 @@ export function LiabilitiesSection() {
                   paddingAngle={5}
                   dataKey="value"
                 >
-                  {liabilities.map((l, idx) => (
+                  {chartLiabilities.map((l, idx) => (
                     <Cell key={l.id} fill={COLORS[idx % COLORS.length]} strokeWidth={0} />
                   ))}
                 </Pie>
@@ -142,7 +150,7 @@ export function LiabilitiesSection() {
               สัดส่วนหนี้สินรวม
             </h3>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {[...liabilities]
+              {[...chartLiabilities]
                 .sort((a, b) => b.totalAmount - a.totalAmount)
                 .slice(0, 4)
                 .map((debt, i) => (
@@ -298,7 +306,7 @@ export function LiabilitiesSection() {
                   <button
                     type="button"
                     onClick={() => setLiabilities((prev) => prev.filter((l) => l.id !== debt.id))}
-                    className="text-brand-muted opacity-0 group-hover:opacity-100 hover:text-red-500 p-2"
+                    className="text-brand-muted opacity-40 group-hover:opacity-100 focus-visible:opacity-100 hover:text-red-500 p-2 transition-opacity"
                     aria-label="Delete debt"
                   >
                     <Trash2 size={14} />

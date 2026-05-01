@@ -192,12 +192,12 @@ function AccountCard({
             placeholder="บัญชี / ทรัพย์สิน"
             value={account.name}
             onChange={(e) => onChange({ name: e.target.value })}
-            className="font-bold text-sm bg-transparent border-none p-0 focus:ring-0"
+            className="font-bold text-sm bg-transparent border-none p-0"
           />
           <div className="flex items-baseline gap-1 mt-4">
             <span className="text-sm font-black text-brand-text">฿</span>
             <p className="text-2xl font-black text-brand-text">{account.amount.toLocaleString()}</p>
-            <div className="flex gap-1 ml-4 opacity-0 group-hover:opacity-100 transition-opacity">
+            <div className="flex gap-1 ml-4 opacity-60 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
               <button
                 type="button"
                 onClick={() => onTransaction("deposit")}
@@ -221,7 +221,7 @@ function AccountCard({
           <button
             type="button"
             onClick={onDelete}
-            className="text-brand-muted hover:text-red-500 p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+            className="text-brand-muted hover:text-red-500 p-1 opacity-40 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
             aria-label="Delete account"
           >
             <Trash2 size={16} />

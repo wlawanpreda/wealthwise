@@ -10,6 +10,7 @@ import {
   Check,
   CheckSquare,
   ChevronDown,
+  Circle,
   Copy,
   History as HistoryIcon,
   MessageSquare,
@@ -156,8 +157,37 @@ export default function DistributionTab() {
     ? (allocations.find((a) => a.id === confirmId) ?? null)
     : null;
 
+  // Empty-state guard: nothing to distribute until the user has at least set
+  // income and one allocation. Without this, the hub renders with progress=0
+  // and "0% of income distributed" which reads as a bug.
+  if (income <= 0 && allocations.length === 0) {
+    return (
+      <div className="flex flex-col gap-8 pb-20">
+        <Card
+          variant="white"
+          padding="lg"
+          className="flex flex-col items-center justify-center text-center"
+        >
+          <div className="p-4 bg-brand-surface rounded-2xl mb-4 text-brand-muted">
+            <Wallet size={48} />
+          </div>
+          <h3 className="text-xl font-bold text-brand-text mb-2">ยังไม่มีรายการสำหรับจัดการโอน</h3>
+          <p className="text-base text-brand-text/80 leading-relaxed mb-2 max-w-sm">
+            ตั้งค่ารายได้และจัดสรรงบประมาณในแท็บ "วางแผน" ก่อน เพื่อเริ่มจัดการการโอนเงินเดือนรายเดือน
+          </p>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-8 pb-20">
+      {income <= 0 && (
+        <output className="bg-blue-50 border border-blue-100 text-blue-700 text-xs font-bold rounded-xl p-3 flex items-center gap-2">
+          <AlertCircle size={14} className="shrink-0" />
+          <span>ตั้งค่ารายได้ต่อเดือนใน "วางแผน" เพื่อคำนวณสัดส่วนของยอดที่โอน</span>
+        </output>
+      )}
       <section className="relative">
         <Card
           variant="white"
@@ -297,12 +327,17 @@ export default function DistributionTab() {
                               </span>
                               <div
                                 className={cn(
-                                  "px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-widest",
+                                  "px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-widest inline-flex items-center gap-1",
                                   alloc.isTransferred
                                     ? "bg-emerald-500/10 text-emerald-600"
                                     : "bg-orange-500/10 text-orange-600",
                                 )}
                               >
+                                {alloc.isTransferred ? (
+                                  <Check size={9} strokeWidth={3} aria-hidden="true" />
+                                ) : (
+                                  <Circle size={9} strokeWidth={3} aria-hidden="true" />
+                                )}
                                 {alloc.isTransferred ? "Completed" : "Pending"}
                               </div>
                             </div>
