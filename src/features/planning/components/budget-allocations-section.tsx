@@ -39,6 +39,13 @@ export function BudgetAllocationsSection() {
         </div>
       </div>
 
+      {income <= 0 && (
+        <output className="bg-blue-50 border border-blue-100 text-blue-700 text-xs font-bold rounded-xl p-3 flex items-center gap-2">
+          <Wallet size={14} className="shrink-0" />
+          <span>ตั้งค่ารายได้ต่อเดือนใน "รายได้และเป้าหมาย" ก่อน เพื่อคำนวณสัดส่วนงบ</span>
+        </output>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {(Object.values(CSR_CATEGORY) as CSRCategory[]).map((category) => {
           const items = allocations.filter((a) => a.category === category);
@@ -81,7 +88,7 @@ export function BudgetAllocationsSection() {
                     {formatCurrency(total)}
                   </p>
                   <p className="text-[9px] font-bold text-brand-muted uppercase tracking-widest">
-                    {((total / (safeIncome || 1)) * 100).toFixed(1)}%
+                    {safeIncome > 0 ? `${((total / safeIncome) * 100).toFixed(1)}%` : "—"}
                   </p>
                 </div>
               </div>
@@ -90,7 +97,7 @@ export function BudgetAllocationsSection() {
                 {items.length === 0 && (
                   <div className="flex flex-wrap gap-2 mb-2 p-3 bg-brand-surface rounded-xl border border-dashed border-brand-border">
                     <p className="w-full text-[9px] font-bold text-brand-muted uppercase tracking-widest mb-1">
-                      ตัวอย่างรายการ:
+                      ยังไม่มีรายการ — เลือกตัวอย่างเริ่มต้น:
                     </p>
                     {EXAMPLES[category].map((example) => (
                       <button

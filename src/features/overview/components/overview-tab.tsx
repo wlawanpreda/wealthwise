@@ -119,7 +119,7 @@ export default function OverviewTab() {
                         {l.name}
                       </p>
                       <p className="text-[10px] text-brand-muted font-bold">
-                        DUE DATE: {l.dueDate ?? "—"}
+                        DUE DATE: {l.dueDate?.trim() || "—"}
                       </p>
                     </div>
                   </div>
