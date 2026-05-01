@@ -106,6 +106,10 @@ gcloud builds submit --config=cloudbuild.yaml --region=asia-southeast1
 ### From GitHub (CI/CD)
 1. Set up Workload Identity Federation (recommended over JSON keys):
    ```bash
+   PROJECT_NUMBER=$(gcloud projects describe epj-project --format='value(projectNumber)')
+   REPO="wlawanpreda/wealthwise"
+
+   # Pool + OIDC provider
    gcloud iam workload-identity-pools create github \
      --location=global --display-name="GitHub Actions"
 
@@ -113,14 +117,59 @@ gcloud builds submit --config=cloudbuild.yaml --region=asia-southeast1
      --location=global --workload-identity-pool=github \
      --display-name="GitHub OIDC" \
      --attribute-mapping="google.subject=assertion.sub,attribute.repository=assertion.repository" \
+     --attribute-condition="assertion.repository=='$REPO'" \
      --issuer-uri="https://token.actions.githubusercontent.com"
+
+   # Allow GitHub OIDC to impersonate the Cloud Build SA
+   gcloud iam service-accounts add-iam-policy-binding \
+     "${PROJECT_NUMBER}@cloudbuild.gserviceaccount.com" \
+     --role="roles/iam.workloadIdentityUser" \
+     --member="principalSet://iam.googleapis.com/projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/github/attribute.repository/$REPO"
    ```
 
-2. Add GitHub repo secrets:
+2. Add GitHub repo secrets at **Settings → Secrets and variables → Actions**:
    - `GCP_WORKLOAD_IDENTITY_PROVIDER` — `projects/PROJECT_NUMBER/locations/global/workloadIdentityPools/github/providers/github`
-   - `GCP_SERVICE_ACCOUNT` — Cloud Build service account email
+   - `GCP_SERVICE_ACCOUNT` — `PROJECT_NUMBER@cloudbuild.gserviceaccount.com`
 
-3. Push to `main` → `.github/workflows/deploy.yml` triggers Cloud Build automatically.
+3. Push to `main` → [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) triggers Cloud Build, then runs a `/api/health` smoke test against the live URL with retry/back-off.
+
+### Auto-merge (solo workflow)
+[`.github/workflows/auto-merge.yml`](.github/workflows/auto-merge.yml) auto-enables auto-merge on PRs you open yourself. Required setup once per repo:
+
+```bash
+# Enable repo-level auto-merge (required for the workflow to take effect)
+gh repo edit --enable-auto-merge
+```
+
+Optional but recommended — branch protection so the auto-merge respects CI:
+
+```bash
+# main requires CI 'quality' check to pass before merge (no approval required for solo)
+gh api -X PUT "repos/wlawanpreda/wealthwise/branches/main/protection" \
+  --field required_status_checks[strict]=true \
+  --field required_status_checks[contexts][]="quality" \
+  --field enforce_admins=false \
+  --field required_pull_request_reviews=null \
+  --field restrictions=null
+```
+
+After this: open a PR → CI runs → if green, merges automatically + deletes branch.
+
+### Cost & monitoring alerts
+Run the helper script once to create budget + alert policies:
+
+```bash
+BILLING_ACCOUNT_ID=$(gcloud billing accounts list --format='value(name)' | head -1)
+ALERT_EMAIL=you@example.com BILLING_ACCOUNT_ID=$BILLING_ACCOUNT_ID \
+  ./scripts/setup-cost-alerts.sh
+```
+
+Creates:
+- Cloud Billing budget at $20/mo with 50%/90%/100%/150%-forecast email triggers
+- Email notification channel
+- Alert policies: 5xx error rate, P95 latency > 5s, Gemini request spike (>100/min)
+
+The budget needs one manual step to wire the email — script prints the exact console URL.
 
 ## Apply Firestore rules
 ```bash

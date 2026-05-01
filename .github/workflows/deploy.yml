@@ -4,11 +4,25 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      skip-smoke-test:
+        description: "Skip post-deploy /api/health smoke test"
+        required: false
+        default: "false"
+        type: choice
+        options: ["false", "true"]
 
 env:
   GCP_PROJECT_ID: epj-project
   REGION: asia-southeast1
   SERVICE: wealthwise
+
+# Never let two deploys race — the second push to main waits for the first
+# to finish. Cancelling the in-flight one would leave Cloud Run in a half-
+# deployed state, so we wait instead.
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   deploy:
@@ -16,6 +30,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
 
@@ -33,3 +48,31 @@ jobs:
             --config=cloudbuild.yaml \
             --region=${{ env.REGION }} \
             --substitutions=_REGION=${{ env.REGION }},_SERVICE=${{ env.SERVICE }}
+
+      - name: Resolve Cloud Run URL
+        id: url
+        run: |
+          SERVICE_URL=$(gcloud run services describe ${{ env.SERVICE }} \
+            --region=${{ env.REGION }} \
+            --format='value(status.url)')
+          echo "service_url=$SERVICE_URL" >> "$GITHUB_OUTPUT"
+          echo "::notice title=Deployed::$SERVICE_URL"
+
+      - name: Smoke test /api/health
+        if: ${{ inputs.skip-smoke-test != 'true' }}
+        run: |
+          # Cloud Run cold-start can take a few seconds on the first request;
+          # retry up to 5 times with a short backoff before giving up.
+          set -e
+          URL="${{ steps.url.outputs.service_url }}/api/health"
+          for i in 1 2 3 4 5; do
+            STATUS=$(curl -s -o /tmp/health.json -w "%{http_code}" "$URL" || echo "000")
+            if [ "$STATUS" = "200" ]; then
+              echo "::notice::Health check passed: $(cat /tmp/health.json)"
+              exit 0
+            fi
+            echo "Health check attempt $i returned $STATUS — retrying in 5s"
+            sleep 5
+          done
+          echo "::error::Health check failed after 5 attempts. Last response: $(cat /tmp/health.json 2>/dev/null || echo none)"
+          exit 1

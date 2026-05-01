@@ -180,8 +180,9 @@ docker build -t wealthwise:test --build-arg <required NEXT_PUBLIC_*> .
 
 - Cloud Run scales to zero by default — first request after idle ~2-3s cold start. Don't add eager imports of heavy libs in `app/layout.tsx`
 - Firestore reads cost money. **Never poll** — use `onSnapshot` (client) or `cache()` (server)
-- Gemini calls cost money. **Always** rate limit / debounce client requests. Today there is no rate limiter — adding one is a high-priority follow-up
+- Gemini calls cost money. `/api/chat` is rate-limited to **10 req/min per uid** via [src/lib/rate-limit.ts](src/lib/rate-limit.ts) — per-instance only; for hard bill protection swap to Upstash Redis
 - Recharts is large. Only import the chart subcomponents you need — never `import * as Recharts`
+- Budget + monitoring alerts are configured via `./scripts/setup-cost-alerts.sh` (see [DEPLOY.md](DEPLOY.md))
 
 ---
 
