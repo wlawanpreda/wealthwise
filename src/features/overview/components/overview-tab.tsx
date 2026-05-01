@@ -3,6 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { CSRCard } from "@/components/ui/csr-card";
+import { CashflowCalendar } from "@/features/cashflow/components/cashflow-calendar";
 import { TaxPlannerCard } from "@/features/tax/components/tax-planner-card";
 import { CSR_CATEGORY } from "@/lib/schemas";
 import { cn, formatCurrency } from "@/lib/utils";
@@ -40,6 +41,8 @@ export default function OverviewTab() {
       </div>
 
       <WeeklyInsightCard />
+
+      <CashflowCalendar />
 
       <TaxPlannerCard />
 
