@@ -5,22 +5,29 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import type { FinancialAccount } from "@/lib/schemas";
-import { cn, newId } from "@/lib/utils";
+import { cn, formatCurrency, newId } from "@/lib/utils";
 import { useFinancialStore } from "@/stores/financial-store";
+import { formatDistanceToNow } from "date-fns";
+import { th as thLocale } from "date-fns/locale";
 import {
   ArrowDownLeft,
   ArrowUpRight,
   Circle,
+  Clock,
   History as HistoryIcon,
   Lock,
   PiggyBank,
   Plus,
   RefreshCw,
   Trash2,
+  TrendingDown,
   TrendingUp,
   Wallet,
 } from "lucide-react";
 import * as React from "react";
+import { latestChange } from "../lib/balance-history";
+import { AccountBalanceEdit } from "./account-balance-edit";
+import { AccountTrendSparkline } from "./account-trend-sparkline";
 import { TransactionDialog, type TransactionDialogPayload } from "./transaction-dialog";
 
 interface Props {
@@ -124,6 +131,27 @@ export function AccountsSection({ isExternalSyncing, onSyncExternal }: Props) {
             }
             onDelete={() => setAccounts((prev) => prev.filter((a) => a.id !== acc.id))}
             onTransaction={(type) => openDialog(acc.id, type)}
+            onAdjustBalance={(newAmount) => {
+              setAccounts((prev) =>
+                prev.map((a) => {
+                  if (a.id !== acc.id) return a;
+                  const diff = newAmount - a.amount;
+                  if (diff === 0) return a;
+                  const tx = {
+                    id: newId(),
+                    timestamp: Date.now(),
+                    type: (diff > 0 ? "deposit" : "withdrawal") as "deposit" | "withdrawal",
+                    amount: Math.abs(diff),
+                    note: "แก้ไขยอดด้วยตัวเอง",
+                  };
+                  return {
+                    ...a,
+                    amount: newAmount,
+                    transactions: [tx, ...(a.transactions ?? [])],
+                  };
+                }),
+              );
+            }}
           />
         ))}
       </div>
@@ -146,6 +174,7 @@ interface AccountCardProps {
   onChange: (patch: Partial<FinancialAccount>) => void;
   onDelete: () => void;
   onTransaction: (type: "deposit" | "withdrawal") => void;
+  onAdjustBalance: (newAmount: number) => void;
 }
 
 function AccountCard({
@@ -155,7 +184,14 @@ function AccountCard({
   onChange,
   onDelete,
   onTransaction,
+  onAdjustBalance,
 }: AccountCardProps) {
+  const change = latestChange(account.amount, account.transactions ?? []);
+  const trend: "up" | "down" | "flat" = change?.type ?? "flat";
+  const lastTxTimestamp = (account.transactions ?? [])[0]?.timestamp;
+  const lastUpdatedLabel = lastTxTimestamp
+    ? formatDistanceToNow(new Date(lastTxTimestamp), { addSuffix: true, locale: thLocale })
+    : null;
   return (
     <Card className="flex flex-col gap-5 group hover:border-indigo-200">
       <div className="flex justify-between items-start">
@@ -196,8 +232,8 @@ function AccountCard({
           />
           <div className="flex items-baseline gap-1 mt-4">
             <span className="text-sm font-black text-brand-text">฿</span>
-            <p className="text-2xl font-black text-brand-text">{account.amount.toLocaleString()}</p>
-            <div className="flex gap-1 ml-4 opacity-60 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+            <AccountBalanceEdit amount={account.amount} onCommit={onAdjustBalance} />
+            <div className="flex gap-1 ml-3 opacity-60 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
               <button
                 type="button"
                 onClick={() => onTransaction("deposit")}
@@ -216,6 +252,42 @@ function AccountCard({
               </button>
             </div>
           </div>
+
+          {(change || lastUpdatedLabel) && (
+            <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+              {change && (
+                <span
+                  className={cn(
+                    "inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full",
+                    change.type === "up"
+                      ? "bg-emerald-50 text-emerald-700"
+                      : "bg-orange-50 text-orange-700",
+                  )}
+                  aria-label={`เปลี่ยนแปลงล่าสุด ${change.type === "up" ? "เพิ่มขึ้น" : "ลดลง"} ${formatCurrency(Math.abs(change.delta))}`}
+                >
+                  {change.type === "up" ? (
+                    <TrendingUp size={10} strokeWidth={3} aria-hidden="true" />
+                  ) : (
+                    <TrendingDown size={10} strokeWidth={3} aria-hidden="true" />
+                  )}
+                  {change.type === "up" ? "+" : "-"}
+                  {Math.abs(change.delta).toLocaleString()}
+                </span>
+              )}
+              {lastUpdatedLabel && (
+                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-brand-muted">
+                  <Clock size={10} aria-hidden="true" />
+                  {lastUpdatedLabel}
+                </span>
+              )}
+            </div>
+          )}
+
+          <AccountTrendSparkline
+            amount={account.amount}
+            transactions={account.transactions ?? []}
+            trend={trend}
+          />
         </div>
         <div className="flex flex-col gap-2">
           <button
