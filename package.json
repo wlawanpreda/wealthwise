@@ -10,6 +10,7 @@
     "preinstall": "npx --yes only-allow pnpm",
     "clean": "rm -rf .next dist coverage .turbo",
     "clean:all": "rm -rf .next dist coverage .turbo node_modules",
+    "fix:case": "rm -rf src/components/ui src/components/layout && git checkout HEAD -- src/components/ src/features/ src/lib/ && rm -rf .next .turbo && echo '✓ case-fixed — now run: pnpm dev'",
     "dev": "next dev --turbo --port 3000",
     "build": "next build",
     "start": "next start -p ${PORT:-3000}",
