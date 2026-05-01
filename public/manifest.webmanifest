@@ -1,0 +1,60 @@
+{
+  "name": "Wealthwise — Financial Architect",
+  "short_name": "Wealthwise",
+  "description": "วางแผนการเงินส่วนบุคคลด้วยหลัก CSR 50/30/20 + AI Advisor",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#f8fafc",
+  "theme_color": "#0f172a",
+  "lang": "th",
+  "dir": "ltr",
+  "categories": ["finance", "productivity", "lifestyle"],
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "วางแผนงบ",
+      "short_name": "วางแผน",
+      "url": "/?tab=planning",
+      "description": "ไปยังการจัดสรรงบประมาณโดยตรง"
+    },
+    {
+      "name": "การโอนเงินเดือน",
+      "short_name": "โอน",
+      "url": "/?tab=distribution",
+      "description": "ไปยัง Salary Distribution Hub"
+    },
+    {
+      "name": "แนวโน้ม",
+      "short_name": "แนวโน้ม",
+      "url": "/?tab=trends",
+      "description": "ดูกราฟความมั่งคั่งย้อนหลัง"
+    }
+  ]
+}
