@@ -7,6 +7,10 @@
     "node": ">=22.11.0"
   },
   "scripts": {
+    "preinstall": "npx --yes only-allow pnpm",
+    "clean": "rm -rf .next dist coverage .turbo",
+    "clean:all": "rm -rf .next dist coverage .turbo node_modules",
+    "fix:case": "rm -rf src/components/ui src/components/layout && git checkout HEAD -- src/components/ src/features/ src/lib/ && rm -rf .next .turbo && echo '✓ case-fixed — now run: pnpm dev'",
     "dev": "next dev --turbo --port 3000",
     "build": "next build",
     "start": "next start -p ${PORT:-3000}",
@@ -18,7 +22,10 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "docker:build": "docker build -t wealthwise:local .",
-    "docker:run": "docker run -p 3000:3000 --env-file .env.local wealthwise:local"
+    "docker:run": "docker run -p 3000:3000 --env-file .env.local wealthwise:local",
+    "docker:up": "docker compose --env-file .env.local up -d --build",
+    "docker:down": "docker compose down",
+    "docker:logs": "docker compose logs -f app"
   },
   "dependencies": {
     "@google/genai": "^1.29.0",
@@ -68,5 +75,12 @@
     "tailwindcss": "^4.1.14",
     "typescript": "~5.7.2",
     "vitest": "^2.1.8"
+  },
+  "pnpm": {
+    "overrides": {
+      "@tootallnate/once": ">=3.0.1",
+      "uuid": ">=14.0.0",
+      "postcss@<8.5.10": "^8.5.10"
+    }
   }
 }
