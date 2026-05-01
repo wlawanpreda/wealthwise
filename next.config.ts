@@ -4,9 +4,9 @@ const config: NextConfig = {
   output: "standalone",
   reactStrictMode: true,
   poweredByHeader: false,
-  experimental: {
-    typedRoutes: true,
-  },
+  // typedRoutes graduated out of `experimental` in Next.js 15.5; keeping it
+  // there only logs a deprecation warning today but is removed in 16.x.
+  typedRoutes: true,
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "lh3.googleusercontent.com" },
