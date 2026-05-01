@@ -1,9 +1,15 @@
 import { requireSessionUser } from "@/lib/auth/session";
 import { getServerEnv } from "@/lib/env";
+import { checkRateLimit } from "@/lib/rate-limit";
 import { CSR_CATEGORY, FinancialPlanSchema, PillarStatusSchema } from "@/lib/schemas";
 import { GoogleGenAI } from "@google/genai";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+
+// Per-user limit on the chat endpoint. Without this, a single authenticated
+// session can drain the Gemini billing quota in minutes. The numbers are
+// generous for a real conversation but tight enough to stop abuse loops.
+const CHAT_RATE_LIMIT = { max: 10, windowMs: 60_000 } as const;
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -60,20 +66,44 @@ function buildContext(
 // Structured error codes the client can map to a user-facing message.
 type ChatErrorCode =
   | "UNAUTHORIZED"
+  | "RATE_LIMITED"
   | "INVALID_JSON"
   | "INVALID_BODY"
   | "MISSING_API_KEY"
   | "AI_UNAVAILABLE";
 
-function errorResponse(code: ChatErrorCode, status: number, detail?: string) {
-  return NextResponse.json({ error: code, detail }, { status });
+function errorResponse(
+  code: ChatErrorCode,
+  status: number,
+  detail?: string,
+  headers?: Record<string, string>,
+) {
+  return NextResponse.json({ error: code, detail }, { status, headers });
 }
 
 export async function POST(req: Request) {
+  let user: Awaited<ReturnType<typeof requireSessionUser>>;
   try {
-    await requireSessionUser();
+    user = await requireSessionUser();
   } catch {
     return errorResponse("UNAUTHORIZED", 401);
+  }
+
+  // Per-uid rate limit. Returning 429 with Retry-After is the standard
+  // signal both browsers and well-behaved clients understand.
+  const limit = checkRateLimit(`chat:${user.uid}`, CHAT_RATE_LIMIT);
+  if (!limit.ok) {
+    return errorResponse(
+      "RATE_LIMITED",
+      429,
+      `อย่าเร็วเกินไป — ลองใหม่ใน ${limit.retryAfterSeconds} วินาที`,
+      {
+        "Retry-After": String(limit.retryAfterSeconds ?? 60),
+        "X-RateLimit-Limit": String(CHAT_RATE_LIMIT.max),
+        "X-RateLimit-Remaining": "0",
+        "X-RateLimit-Reset": String(Math.ceil(limit.resetAt / 1000)),
+      },
+    );
   }
 
   let body: unknown;

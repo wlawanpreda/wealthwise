@@ -11,6 +11,10 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      // Stub Next.js's `server-only` guard so unit tests can import server
+      // utilities without throwing. The guard's purpose is to fail builds
+      // when client code imports server modules — not relevant in vitest.
+      "server-only": path.resolve(__dirname, "./tests/unit/server-only-shim.ts"),
     },
   },
 });

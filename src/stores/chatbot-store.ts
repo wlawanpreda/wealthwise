@@ -29,6 +29,7 @@ interface ChatbotState {
 
 function mapServerErrorToMessage(code?: string, detail?: string): string {
   if (code === "UNAUTHORIZED") return "เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่";
+  if (code === "RATE_LIMITED") return detail ?? "ส่งคำถามเร็วเกินไป กรุณารอสักครู่แล้วลองใหม่";
   if (code === "MISSING_API_KEY")
     return "ระบบ AI ยังไม่ได้ตั้งค่า: ผู้ดูแลต้องเพิ่ม GEMINI_API_KEY ใน .env.local แล้วรีสตาร์ท dev server";
   if (code === "INVALID_BODY") return `ข้อมูลที่ส่งไม่ถูกต้อง${detail ? ` (${detail})` : ""}`;
