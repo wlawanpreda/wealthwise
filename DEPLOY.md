@@ -172,9 +172,26 @@ Creates:
 The budget needs one manual step to wire the email — script prints the exact console URL.
 
 ## Apply Firestore rules
+
+The repo includes `firebase.json` (rules path) and `.firebaserc` (project alias) so you don't need to `firebase init`.
+
+**One-shot via pnpm dlx (recommended — no install required):**
 ```bash
-firebase deploy --only firestore:rules --project epj-project
+pnpm dlx firebase-tools login          # one-time browser auth
+pnpm dlx firebase-tools deploy --only firestore:rules
 ```
+
+**Or install the CLI globally if you'll do this often:**
+```bash
+npm install -g firebase-tools
+firebase login
+firebase deploy --only firestore:rules
+```
+
+**Or deploy via the Firebase Console** (no CLI):
+1. Open https://console.firebase.google.com/project/epj-project/firestore/rules
+2. Copy the contents of [firestore.rules](firestore.rules) into the editor
+3. Click **Publish**
 
 ## Verify
 ```bash
