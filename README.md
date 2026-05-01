@@ -25,8 +25,13 @@
 
 ## Local Development
 
+> **⚠️ Use pnpm only.** A `preinstall` guard blocks `npm install` / `yarn install` —
+> running them aborts with an error. The Vite-era `package-lock.json` you may
+> still see in the parent repo on `main` is from the old stack with known vulns;
+> after this PR merges, only `pnpm-lock.yaml` is authoritative.
+
 ```bash
-# Prereqs: Node 22.11+, pnpm 9, Docker (optional)
+# Prereqs: Node 22.11+, Docker (optional)
 corepack enable && corepack prepare pnpm@9.15.0 --activate
 
 cp .env.example .env.local
@@ -41,14 +46,18 @@ App runs at http://localhost:3000
 ### Run on Docker
 
 ```bash
-pnpm docker:build
-pnpm docker:run
+pnpm docker:up      # build + run via docker compose, uses .env.local
+pnpm docker:logs    # tail container logs
+pnpm docker:down    # stop + remove
 ```
 
-หรือ
-```bash
-docker compose up --build
-```
+> **⚠️ Don't run `docker compose up` directly** — Compose auto-loads `.env`,
+> not `.env.local`. The `pnpm docker:up` script wraps it with
+> `--env-file .env.local` so `NEXT_PUBLIC_*` build args are populated.
+> If you must invoke compose manually, use:
+> ```bash
+> docker compose --env-file .env.local up -d --build
+> ```
 
 ## Scripts
 

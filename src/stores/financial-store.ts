@@ -5,6 +5,7 @@ import { CSR_CATEGORY, type FinancialPlan } from "@/lib/schemas";
 import { newId, safeDivide } from "@/lib/utils";
 import { create } from "zustand";
 import { devtools } from "zustand/middleware";
+import { useShallow } from "zustand/react/shallow";
 
 type Updater<T> = T | ((prev: T) => T);
 
@@ -101,53 +102,65 @@ export const useFinancialStore = create<FinancialState>()(
 // ----------------------------------------------------------------------------
 // Selectors — keep derived calculations out of components
 // ----------------------------------------------------------------------------
+// Each call subscribes to four primitive/array slices via Zustand's default
+// Object.is comparison, then derives values locally with useMemo so subscribers
+// get a stable object reference between renders unless inputs actually changed.
+import { useMemo } from "react";
+
 export function useDerivedFinancials() {
   const allocations = useFinancialStore((s) => s.allocations);
   const liabilities = useFinancialStore((s) => s.liabilities);
   const accounts = useFinancialStore((s) => s.emergencyFunds);
   const income = useFinancialStore((s) => s.income);
 
-  const csr = calculateCSR(allocations);
-  const constantAmount = csr[CSR_CATEGORY.CONSTANT];
-  const spendingAmount = csr[CSR_CATEGORY.SPENDING];
-  const reserveAmount = csr[CSR_CATEGORY.RESERVE];
-  const totalWealth = accounts.reduce((s, a) => s + a.amount, 0);
-  const totalDebt = liabilities.reduce((s, l) => s + l.totalAmount, 0);
-  const netWorth = totalWealth - totalDebt;
-  const totalEmergency = accounts
-    .filter((a) => a.isEmergencyFund)
-    .reduce((s, a) => s + a.amount, 0);
-  const monthlyExpenses = constantAmount + spendingAmount;
-  const emergencyMonths = safeDivide(totalEmergency, monthlyExpenses);
-  const totalMonthlyDebt = liabilities.reduce((s, l) => s + l.monthlyPayment, 0);
-  const dti = safeDivide(totalMonthlyDebt, income);
-  const savingsRate = safeDivide(reserveAmount, income) * 100;
-  const pillars = evaluatePillars(allocations, liabilities, accounts, income);
+  return useMemo(() => {
+    const csr = calculateCSR(allocations);
+    const constantAmount = csr[CSR_CATEGORY.CONSTANT];
+    const spendingAmount = csr[CSR_CATEGORY.SPENDING];
+    const reserveAmount = csr[CSR_CATEGORY.RESERVE];
+    const totalWealth = accounts.reduce((s, a) => s + a.amount, 0);
+    const totalDebt = liabilities.reduce((s, l) => s + l.totalAmount, 0);
+    const netWorth = totalWealth - totalDebt;
+    const totalEmergency = accounts
+      .filter((a) => a.isEmergencyFund)
+      .reduce((s, a) => s + a.amount, 0);
+    const monthlyExpenses = constantAmount + spendingAmount;
+    const emergencyMonths = safeDivide(totalEmergency, monthlyExpenses);
+    const totalMonthlyDebt = liabilities.reduce((s, l) => s + l.monthlyPayment, 0);
+    const dti = safeDivide(totalMonthlyDebt, income);
+    const savingsRate = safeDivide(reserveAmount, income) * 100;
+    const pillars = evaluatePillars(allocations, liabilities, accounts, income);
 
-  return {
-    csr,
-    constantAmount,
-    spendingAmount,
-    reserveAmount,
-    totalWealth,
-    totalDebt,
-    netWorth,
-    monthlyExpenses,
-    emergencyMonths,
-    dti,
-    savingsRate,
-    pillars,
-  };
+    return {
+      csr,
+      constantAmount,
+      spendingAmount,
+      reserveAmount,
+      totalWealth,
+      totalDebt,
+      netWorth,
+      monthlyExpenses,
+      emergencyMonths,
+      dti,
+      savingsRate,
+      pillars,
+    };
+  }, [allocations, liabilities, accounts, income]);
 }
 
+// useShallow prevents an infinite re-render loop: this selector returns a fresh
+// object literal each call. Without shallow comparison, Zustand's default
+// Object.is check sees a "new" object every render and re-subscribes forever.
 export function useFinancialPlanSnapshot(): FinancialPlan {
-  return useFinancialStore((s) => ({
-    income: s.income,
-    savingsTarget: s.savingsTarget,
-    allocations: s.allocations,
-    liabilities: s.liabilities,
-    emergencyFunds: s.emergencyFunds,
-    history: s.history,
-    projections: s.projections,
-  }));
+  return useFinancialStore(
+    useShallow((s) => ({
+      income: s.income,
+      savingsTarget: s.savingsTarget,
+      allocations: s.allocations,
+      liabilities: s.liabilities,
+      emergencyFunds: s.emergencyFunds,
+      history: s.history,
+      projections: s.projections,
+    })),
+  );
 }

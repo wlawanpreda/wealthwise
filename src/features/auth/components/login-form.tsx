@@ -30,11 +30,24 @@ export default function LoginForm() {
       router.replace("/");
       router.refresh();
     } catch (err) {
+      const code = (err as { code?: string } | null)?.code ?? "";
       const message = err instanceof Error ? err.message : "เกิดข้อผิดพลาดในการเข้าสู่ระบบ";
-      if (
-        !message.includes("popup-closed-by-user") &&
-        !message.includes("cancelled-popup-request")
+
+      if (code.includes("popup-closed-by-user") || code.includes("cancelled-popup-request")) {
+        // user dismissed the popup — silent
+      } else if (
+        code === "auth/unauthorized-domain" ||
+        message.includes("auth/unauthorized-domain")
       ) {
+        const origin = typeof window !== "undefined" ? window.location.host : "this domain";
+        setError(
+          `Domain "${origin}" ยังไม่ได้รับอนุญาต — เปิด Firebase Console → Authentication → Settings → Authorized domains แล้วเพิ่ม "${origin}"`,
+        );
+      } else if (code === "auth/operation-not-allowed") {
+        setError("Google sign-in ยังไม่เปิดใน Firebase Console → Authentication → Sign-in method");
+      } else if (code === "auth/popup-blocked") {
+        setError("เบราว์เซอร์บล็อก popup — โปรดอนุญาต popup สำหรับ domain นี้");
+      } else {
         setError(message);
       }
     } finally {
