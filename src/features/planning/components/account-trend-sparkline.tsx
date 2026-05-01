@@ -24,15 +24,19 @@ const TREND_COLORS = {
  * trend.
  */
 export function AccountTrendSparkline({ amount, transactions, trend = "flat" }: Props) {
+  // All hooks must run unconditionally on every render — keep them above any
+  // early return so React's hook order stays stable. Returning null after
+  // calling useId/useMemo would crash with "Rendered more hooks than during
+  // the previous render" the next time data crosses the 2-point threshold.
   const data = React.useMemo(
     () => reconstructBalanceHistory(amount, transactions),
     [amount, transactions],
   );
+  const gradientId = React.useId();
 
   if (data.length < 2) return null;
 
   const color = TREND_COLORS[trend];
-  const gradientId = React.useId();
 
   return (
     <div className="h-12 w-full -mx-1" aria-hidden="true">
