@@ -39,6 +39,7 @@ export function FinancialBootstrap({ initialPlan, children }: Props) {
       emergencyFunds: plan.emergencyFunds,
       history: plan.history,
       projections: plan.projections,
+      taxContributions: plan.taxContributions,
     });
 
     if (serialized === lastSyncedRef.current) return;
