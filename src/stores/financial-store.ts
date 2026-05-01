@@ -24,6 +24,7 @@ interface FinancialState extends FinancialPlan {
   setAccounts: (u: Updater<FinancialPlan["emergencyFunds"]>) => void;
   setHistory: (u: Updater<NonNullable<FinancialPlan["history"]>>) => void;
   setProjections: (u: Updater<NonNullable<FinancialPlan["projections"]>>) => void;
+  setTaxContributions: (u: Updater<NonNullable<FinancialPlan["taxContributions"]>>) => void;
 
   // domain actions
   takeSnapshot: () => void;
@@ -45,6 +46,7 @@ export const useFinancialStore = create<FinancialState>()(
       emergencyFunds: [],
       history: [],
       projections: [],
+      taxContributions: [],
 
       setSyncing: (syncing) => set({ isSyncing: syncing }),
 
@@ -57,6 +59,7 @@ export const useFinancialStore = create<FinancialState>()(
           emergencyFunds: plan.emergencyFunds,
           history: plan.history ?? [],
           projections: plan.projections ?? [],
+          taxContributions: plan.taxContributions ?? [],
           hydrated: true,
         }),
 
@@ -67,6 +70,8 @@ export const useFinancialStore = create<FinancialState>()(
       setAccounts: (u) => set((s) => ({ emergencyFunds: applyUpdater(u, s.emergencyFunds) })),
       setHistory: (u) => set((s) => ({ history: applyUpdater(u, s.history ?? []) })),
       setProjections: (u) => set((s) => ({ projections: applyUpdater(u, s.projections ?? []) })),
+      setTaxContributions: (u) =>
+        set((s) => ({ taxContributions: applyUpdater(u, s.taxContributions ?? []) })),
 
       takeSnapshot: () => {
         const s = get();
@@ -161,6 +166,7 @@ export function useFinancialPlanSnapshot(): FinancialPlan {
       emergencyFunds: s.emergencyFunds,
       history: s.history,
       projections: s.projections,
+      taxContributions: s.taxContributions,
     })),
   );
 }

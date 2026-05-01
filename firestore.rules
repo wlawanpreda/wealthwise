@@ -33,7 +33,8 @@ service cloud.firestore {
         && data.emergencyFunds is list && data.emergencyFunds.size() <= 10
         && (!('savingsTarget' in data.keys()) || (data.savingsTarget is number && data.savingsTarget >= 0))
         && (!('history' in data.keys()) || (data.history is list && data.history.size() <= 240))
-        && (!('projections' in data.keys()) || (data.projections is list && data.projections.size() <= 30));
+        && (!('projections' in data.keys()) || (data.projections is list && data.projections.size() <= 30))
+        && (!('taxContributions' in data.keys()) || (data.taxContributions is list && data.taxContributions.size() <= 120));
     }
 
     // ----------------------------------------------------------------------

@@ -79,6 +79,21 @@ export const IncomeProjectionSchema = z.object({
 });
 export type IncomeProjection = z.infer<typeof IncomeProjectionSchema>;
 
+// Tax-favored deductions tracked per calendar year. Vehicle keys are kept
+// in sync with TAX_FAVORED_VEHICLES in src/features/tax/lib/thai-tax.ts.
+export const TaxFavoredContributionSchema = z.object({
+  id: z.string().min(1).max(64),
+  vehicle: z.enum(["RMF", "SSF", "PVD", "PENSION_INSURANCE", "LIFE_INSURANCE"]),
+  /** YYYY (e.g. "2026") — the tax year the contribution counts toward. */
+  year: z.string().regex(/^\d{4}$/),
+  amount: z.number().nonnegative().max(10_000_000),
+  /** Optional note (e.g. fund name). */
+  note: z.string().max(200).optional(),
+  /** Unix ms; when the contribution was logged. */
+  recordedAt: z.number().int().nonnegative(),
+});
+export type TaxFavoredContribution = z.infer<typeof TaxFavoredContributionSchema>;
+
 export const FinancialPlanSchema = z.object({
   income: z.number().nonnegative().max(100_000_000),
   savingsTarget: z.number().nonnegative().default(2_880_000),
@@ -87,6 +102,10 @@ export const FinancialPlanSchema = z.object({
   emergencyFunds: z.array(FinancialAccountSchema).max(10),
   history: z.array(FinancialSnapshotSchema).max(240).optional().default([]),
   projections: z.array(IncomeProjectionSchema).max(30).optional().default([]),
+  // Optional + default empty so existing user plans (created before this
+  // field existed) parse without migration. New tax-favored vehicles get
+  // appended; the array is capped at 5 years × 5 vehicles × ~5 entries.
+  taxContributions: z.array(TaxFavoredContributionSchema).max(120).optional().default([]),
 });
 export type FinancialPlan = z.infer<typeof FinancialPlanSchema>;
 

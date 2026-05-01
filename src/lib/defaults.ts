@@ -32,5 +32,6 @@ export function buildSampleSeedPlan(): FinancialPlan {
     ],
     history: [],
     projections: [],
+    taxContributions: [],
   };
 }
