@@ -1,0 +1,33 @@
+name: Auto-merge owner PRs
+
+# Why: this is a solo project, so manually clicking "Merge" on every PR
+# adds friction without value. Auto-merge waits for required checks to
+# pass and only then merges — same safety as manual merge, less typing.
+#
+# Auto-merge applies only to PRs opened by the repo owner. Drive-by PRs
+# from outside contributors still require explicit owner action.
+
+on:
+  pull_request:
+    types: [opened, ready_for_review, reopened, synchronize]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  enable-auto-merge:
+    # Skip drafts and PRs from other authors
+    if: |
+      github.event.pull_request.draft == false
+      && github.event.pull_request.user.login == github.repository_owner
+    runs-on: ubuntu-latest
+    steps:
+      - name: Enable auto-merge (squash, delete branch on merge)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: |
+          # If auto-merge is already enabled, this is a no-op success.
+          gh pr merge --auto --squash --delete-branch "$PR_URL" || \
+            echo "::notice::auto-merge could not be enabled (likely already on or repo-level setting disabled)"
