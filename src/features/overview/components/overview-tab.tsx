@@ -11,6 +11,7 @@ import { CSRChart } from "./csr-chart";
 import { FinancialMilestones } from "./financial-milestones";
 import { PillarCard } from "./pillar-card";
 import { WealthProgress } from "./wealth-progress";
+import { WeeklyInsightCard } from "./weekly-insight-card";
 
 export default function OverviewTab() {
   const income = useFinancialStore((s) => s.income);
@@ -36,6 +37,8 @@ export default function OverviewTab() {
           Generate Wealth Snapshot
         </Button>
       </div>
+
+      <WeeklyInsightCard />
 
       <FinancialMilestones />
 
