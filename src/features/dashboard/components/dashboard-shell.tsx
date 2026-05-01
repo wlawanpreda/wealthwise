@@ -2,6 +2,7 @@
 
 import { NavButton } from "@/components/layout/nav-button";
 import { signOutAction } from "@/features/auth/actions";
+import { ChatbotExpandedDialog } from "@/features/chatbot/components/chatbot-expanded-dialog";
 import { ChatbotPanel } from "@/features/chatbot/components/chatbot-panel";
 import DistributionTab from "@/features/distribution/components/distribution-tab";
 import OverviewTab from "@/features/overview/components/overview-tab";
@@ -270,6 +271,8 @@ export function DashboardShell({ user }: { user: User }) {
           />
         </div>
       </main>
+
+      <ChatbotExpandedDialog />
     </div>
   );
 }

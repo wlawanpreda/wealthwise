@@ -1,16 +1,12 @@
 "use client";
 
 import { cn } from "@/lib/utils";
+import { useChatbotStore, useChatbotView } from "@/stores/chatbot-store";
 import { useDerivedFinancials, useFinancialPlanSnapshot } from "@/stores/financial-store";
-import { Loader2, Send } from "lucide-react";
+import { Loader2, Maximize2, Send, Sparkles } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import * as React from "react";
 import ReactMarkdown from "react-markdown";
-
-interface Message {
-  role: "user" | "assistant";
-  text: string;
-}
 
 const SUGGESTIONS = [
   "วิเคราะห์ภาพรวมและแนะนำ",
@@ -19,18 +15,26 @@ const SUGGESTIONS = [
   "ต้องออมเดือนละเท่าไหร่ให้ถึงเป้าหมาย?",
 ];
 
-const INITIAL_MESSAGE: Message = {
-  role: "assistant",
-  text: "สวัสดีครับ ผมคือสถาปนิกการเงิน AI ยินดีช่วยคุณวางแผนจัดการงบประมาณและหนี้สินครับ",
-};
+interface Props {
+  /**
+   * `compact` is the sidebar inline view — small bubbles, smaller text,
+   * an "ขยาย" button that opens the dialog.
+   * `expanded` is the dialog view — full-width bubbles, larger text,
+   * no expand button.
+   */
+  variant?: "compact" | "expanded";
+}
 
-export function ChatbotPanel() {
+export function ChatbotPanel({ variant = "compact" }: Props) {
   const plan = useFinancialPlanSnapshot();
   const { pillars } = useDerivedFinancials();
-  const [messages, setMessages] = React.useState<Message[]>([INITIAL_MESSAGE]);
-  const [input, setInput] = React.useState("");
-  const [isLoading, setIsLoading] = React.useState(false);
+  const { messages, input, isLoading } = useChatbotView();
+  const setInput = useChatbotStore((s) => s.setInput);
+  const setExpanded = useChatbotStore((s) => s.setExpanded);
+  const send = useChatbotStore((s) => s.send);
   const scrollRef = React.useRef<HTMLDivElement>(null);
+
+  const isExpanded = variant === "expanded";
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: scroll-to-bottom needs to fire when message list or loading state changes
   React.useEffect(() => {
@@ -39,88 +43,40 @@ export function ChatbotPanel() {
     }
   }, [messages, isLoading]);
 
-  const send = async (text: string) => {
-    const trimmed = text.trim();
-    if (!trimmed || isLoading) return;
-    setInput("");
-    setMessages((prev) => [
-      ...prev,
-      { role: "user", text: trimmed },
-      { role: "assistant", text: "" },
-    ]);
-    setIsLoading(true);
-
-    const finalizeWithError = (message: string) => {
-      setMessages((prev) => {
-        const copy = [...prev];
-        copy[copy.length - 1] = { role: "assistant", text: message };
-        return copy;
-      });
-    };
-
-    try {
-      const res = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ plan, pillars, message: trimmed }),
-      });
-
-      if (!res.ok || !res.body) {
-        // Try to surface the structured error payload from the route handler
-        // so the user sees an actionable hint (e.g. missing API key) rather
-        // than a generic "AI unavailable".
-        let detail: string | undefined;
-        let code: string | undefined;
-        try {
-          const payload = (await res.json()) as { error?: string; detail?: string };
-          code = payload.error;
-          detail = payload.detail;
-        } catch {
-          /* response wasn't JSON — fall through to generic message */
-        }
-
-        const userMessage =
-          code === "UNAUTHORIZED"
-            ? "เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่"
-            : code === "MISSING_API_KEY"
-              ? "ระบบ AI ยังไม่ได้ตั้งค่า: ผู้ดูแลต้องเพิ่ม GEMINI_API_KEY ใน .env.local แล้วรีสตาร์ท dev server"
-              : code === "INVALID_BODY"
-                ? `ข้อมูลที่ส่งไม่ถูกต้อง${detail ? ` (${detail})` : ""}`
-                : code === "AI_UNAVAILABLE"
-                  ? `บริการ AI ไม่พร้อมใช้งานชั่วคราว${detail ? ` — ${detail}` : ""}`
-                  : "ขออภัย เกิดข้อผิดพลาดในการเชื่อมต่อระบบ AI กรุณาลองใหม่ภายหลัง";
-
-        finalizeWithError(userMessage);
-        return;
-      }
-
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let acc = "";
-
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        acc += decoder.decode(value, { stream: true });
-        setMessages((prev) => {
-          const copy = [...prev];
-          copy[copy.length - 1] = { role: "assistant", text: acc };
-          return copy;
-        });
-      }
-    } catch (err) {
-      // Network failure (offline, DNS, etc.) — log so devs can see it but
-      // present a friendly message to the user.
-      console.warn("[chatbot] network error:", err);
-      finalizeWithError("ขออภัย เชื่อมต่อกับเซิร์ฟเวอร์ไม่ได้ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่");
-    } finally {
-      setIsLoading(false);
-    }
+  const handleSend = (text: string) => {
+    void send(text, plan, pillars);
   };
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden">
-      <div ref={scrollRef} className="flex-1 overflow-y-auto space-y-3 pb-4 scrollbar-hide">
+    <div className="flex-1 flex flex-col overflow-hidden min-h-0">
+      {/* Header — only in compact view; the dialog has its own title bar */}
+      {!isExpanded && (
+        <div className="flex items-center justify-between mb-3 -mt-1">
+          <div className="flex items-center gap-1.5">
+            <Sparkles size={11} className="text-blue-600" aria-hidden="true" />
+            <span className="text-[10px] font-black uppercase tracking-widest text-brand-muted">
+              AI Advisor
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setExpanded(true)}
+            className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-600 hover:text-blue-800 transition-colors px-2 py-1 rounded-md hover:bg-blue-50"
+            aria-label="ขยายหน้าต่างแชท"
+          >
+            <Maximize2 size={11} />
+            ขยาย
+          </button>
+        </div>
+      )}
+
+      <div
+        ref={scrollRef}
+        className={cn(
+          "flex-1 overflow-y-auto pb-4 scrollbar-hide",
+          isExpanded ? "space-y-4 px-1" : "space-y-3",
+        )}
+      >
         <AnimatePresence mode="popLayout">
           {messages.map((msg, i) => (
             <motion.div
@@ -128,14 +84,25 @@ export function ChatbotPanel() {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               className={cn(
-                "p-3 rounded-xl text-[13px] leading-relaxed border",
+                "rounded-xl border leading-relaxed",
+                isExpanded ? "p-4 text-sm" : "p-3 text-[13px]",
                 msg.role === "user"
-                  ? "bg-blue-600 text-white border-blue-700 ml-6 rounded-tr-none shadow-sm"
+                  ? cn(
+                      "bg-blue-600 text-white border-blue-700 rounded-tr-none shadow-sm",
+                      // user bubble shifts right; in compact we use a smaller
+                      // margin so 320px sidebar doesn't truncate the text
+                      isExpanded ? "ml-12 md:ml-24" : "ml-2",
+                    )
                   : "bg-brand-surface text-brand-text border-brand-border rounded-tl-none",
               )}
             >
               {msg.role === "assistant" && (
-                <p className="text-[10px] font-bold text-blue-700 mb-1 uppercase tracking-widest">
+                <p
+                  className={cn(
+                    "font-bold text-blue-700 uppercase tracking-widest",
+                    isExpanded ? "text-[11px] mb-2" : "text-[10px] mb-1",
+                  )}
+                >
                   สถาปนิกการเงิน
                 </p>
               )}
@@ -145,12 +112,32 @@ export function ChatbotPanel() {
                     components={{
                       p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
                       ul: ({ children }) => (
-                        <ul className="list-disc pl-4 mb-2 space-y-1">{children}</ul>
+                        <ul
+                          className={cn("list-disc mb-2 space-y-1", isExpanded ? "pl-5" : "pl-4")}
+                        >
+                          {children}
+                        </ul>
                       ),
                       ol: ({ children }) => (
-                        <ol className="list-decimal pl-4 mb-2 space-y-1">{children}</ol>
+                        <ol
+                          className={cn(
+                            "list-decimal mb-2 space-y-1",
+                            isExpanded ? "pl-5" : "pl-4",
+                          )}
+                        >
+                          {children}
+                        </ol>
                       ),
                       li: ({ children }) => <li className="mb-0.5">{children}</li>,
+                      h1: ({ children }) => (
+                        <h2 className="text-base font-black mb-2 mt-3">{children}</h2>
+                      ),
+                      h2: ({ children }) => (
+                        <h3 className="text-sm font-black mb-1.5 mt-3">{children}</h3>
+                      ),
+                      h3: ({ children }) => (
+                        <h4 className="text-sm font-bold mb-1 mt-2">{children}</h4>
+                      ),
                       strong: ({ children }) => (
                         <strong
                           className={cn(
@@ -162,9 +149,19 @@ export function ChatbotPanel() {
                         </strong>
                       ),
                       code: ({ children }) => (
-                        <code className="bg-brand-bg px-1 rounded font-mono text-[11px]">
+                        <code
+                          className={cn(
+                            "bg-brand-bg px-1 rounded font-mono",
+                            isExpanded ? "text-xs" : "text-[11px]",
+                          )}
+                        >
                           {children}
                         </code>
+                      ),
+                      pre: ({ children }) => (
+                        <pre className="bg-brand-bg p-3 rounded-lg overflow-x-auto text-xs my-2">
+                          {children}
+                        </pre>
                       ),
                     }}
                   >
@@ -180,13 +177,16 @@ export function ChatbotPanel() {
       </div>
 
       {!isLoading && messages.length < 5 && (
-        <div className="flex flex-wrap gap-2 mb-4">
+        <div className={cn("flex flex-wrap gap-2", isExpanded ? "mb-4 px-1" : "mb-4")}>
           {SUGGESTIONS.map((s) => (
             <button
               key={s}
               type="button"
-              onClick={() => send(s)}
-              className="text-[11px] font-bold py-1.5 px-3 rounded-full bg-blue-50 text-blue-700 border border-blue-100 hover:bg-blue-600 hover:text-white hover:border-blue-600 transition-all shadow-sm"
+              onClick={() => handleSend(s)}
+              className={cn(
+                "font-bold rounded-full bg-blue-50 text-blue-700 border border-blue-100 hover:bg-blue-600 hover:text-white hover:border-blue-600 transition-all shadow-sm",
+                isExpanded ? "text-xs py-2 px-4" : "text-[11px] py-1.5 px-3",
+              )}
             >
               {s}
             </button>
@@ -194,7 +194,9 @@ export function ChatbotPanel() {
         </div>
       )}
 
-      <div className="pt-4 border-t border-brand-border mt-auto">
+      <div
+        className={cn("border-t border-brand-border mt-auto", isExpanded ? "pt-4 px-1" : "pt-4")}
+      >
         <div className="relative">
           <input
             type="text"
@@ -203,20 +205,26 @@ export function ChatbotPanel() {
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
-                send(input);
+                handleSend(input);
               }
             }}
             placeholder="สอบถามข้อมูลพอร์ต..."
-            className="w-full bg-brand-bg border-none rounded-lg p-3 pr-10 text-[13px] font-medium text-brand-text focus:ring-2 focus:ring-blue-500/20 transition-all placeholder:text-brand-secondary"
+            className={cn(
+              "w-full bg-brand-bg border-none rounded-lg font-medium text-brand-text focus:ring-2 focus:ring-blue-500/20 transition-all placeholder:text-brand-secondary",
+              isExpanded ? "p-4 pr-12 text-sm" : "p-3 pr-10 text-[13px]",
+            )}
           />
           <button
             type="button"
-            onClick={() => send(input)}
+            onClick={() => handleSend(input)}
             disabled={!input.trim() || isLoading}
-            className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-md hover:bg-brand-border transition-colors text-brand-secondary hover:text-blue-600 disabled:opacity-30"
+            className={cn(
+              "absolute top-1/2 -translate-y-1/2 rounded-md hover:bg-brand-border transition-colors text-brand-secondary hover:text-blue-600 disabled:opacity-30",
+              isExpanded ? "right-4 p-2" : "right-3 p-1.5",
+            )}
             aria-label="Send"
           >
-            <Send size={14} strokeWidth={2.5} />
+            <Send size={isExpanded ? 16 : 14} strokeWidth={2.5} />
           </button>
         </div>
       </div>
