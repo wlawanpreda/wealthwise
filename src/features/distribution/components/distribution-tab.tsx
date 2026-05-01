@@ -7,6 +7,7 @@ import { useFinancialStore } from "@/stores/financial-store";
 import {
   AlertCircle,
   ArrowRightLeft,
+  Calendar,
   Check,
   CheckSquare,
   ChevronDown,
@@ -14,6 +15,9 @@ import {
   Copy,
   History as HistoryIcon,
   MessageSquare,
+  PartyPopper,
+  RotateCcw,
+  Sparkles,
   Square,
   Trash2,
   Undo2,
@@ -21,7 +25,16 @@ import {
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import * as React from "react";
+import {
+  formatThaiMonth,
+  getCurrentCycleMonth,
+  getCurrentCycleTotal,
+  getLatestTransferMonth,
+  isNewCycleAvailable,
+  nextMonth,
+} from "../lib/cycle";
 import { AccountPicker } from "./account-picker";
+import { CycleResetDialog } from "./cycle-reset-dialog";
 import { TransferConfirmDialog } from "./transfer-confirm-dialog";
 
 const UNDO_TIMEOUT_MS = 10_000;
@@ -33,6 +46,7 @@ export default function DistributionTab() {
   const accounts = useFinancialStore((s) => s.emergencyFunds);
 
   const [confirmId, setConfirmId] = React.useState<string | null>(null);
+  const [resetDialogOpen, setResetDialogOpen] = React.useState(false);
   const [undoTransfer, setUndoTransfer] = React.useState<{
     id: string;
     originalTransferred: boolean;
@@ -84,6 +98,25 @@ export default function DistributionTab() {
   const completedCount = allocations.filter((a) => a.isTransferred).length;
   const totalCount = allocations.length;
   const isAllDone = totalCount > 0 && completedCount === totalCount;
+
+  // Cycle metadata — current month, last cycle the user worked on, and
+  // whether a fresh cycle is available (i.e. month rolled over since the
+  // most recent transfer).
+  const currentCycle = getCurrentCycleMonth();
+  const lastTransferCycle = getLatestTransferMonth(allocations);
+  const cycleNeedsReset = isNewCycleAvailable(allocations);
+  const transferredThisCycle = getCurrentCycleTotal(allocations);
+
+  const handleResetCycle = () => {
+    setAllocations((prev) =>
+      prev.map((a) => ({
+        ...a,
+        isTransferred: false,
+        // intentionally preserve transferHistory — it's the audit trail
+      })),
+    );
+    setResetDialogOpen(false);
+  };
 
   const performToggle = (id: string, note: string) => {
     setAllocations((prev) =>
@@ -188,6 +221,36 @@ export default function DistributionTab() {
           <span>ตั้งค่ารายได้ต่อเดือนใน "วางแผน" เพื่อคำนวณสัดส่วนของยอดที่โอน</span>
         </output>
       )}
+
+      {cycleNeedsReset && lastTransferCycle && (
+        <motion.output
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-gradient-to-r from-emerald-50 to-blue-50 border border-emerald-200 text-emerald-800 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center gap-3 shadow-sm"
+        >
+          <div className="w-10 h-10 rounded-xl bg-emerald-500 text-white flex items-center justify-center shrink-0">
+            <Sparkles size={18} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-black mb-0.5">
+              ขึ้น {formatThaiMonth(currentCycle)} แล้ว — พร้อมเริ่มรอบใหม่
+            </p>
+            <p className="text-xs text-emerald-700/80 font-bold">
+              คุณ allocate รอบ {formatThaiMonth(lastTransferCycle)} เสร็จแล้ว กดเพื่อรีเซ็ตสถานะและเริ่ม
+              allocate รอบใหม่ได้เลย
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setResetDialogOpen(true)}
+            className="bg-emerald-600 text-white text-xs font-black uppercase tracking-widest rounded-xl px-4 py-2.5 hover:bg-emerald-700 transition-colors shadow-sm shrink-0 inline-flex items-center gap-2"
+          >
+            <RotateCcw size={12} />
+            เริ่มรอบใหม่
+          </button>
+        </motion.output>
+      )}
+
       <section className="relative">
         <Card
           variant="white"
@@ -207,6 +270,28 @@ export default function DistributionTab() {
                 {formatCurrency(income).replace("฿", "")}
                 <span className="text-lg font-bold text-brand-secondary">THB / MONTH</span>
               </h2>
+              <div className="flex items-center gap-2 mt-2">
+                <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-brand-muted bg-brand-bg/60 border border-brand-border/50 rounded-full px-2.5 py-1">
+                  <Calendar size={11} className="text-blue-600" aria-hidden="true" />
+                  รอบ {formatThaiMonth(currentCycle)}
+                </span>
+                {(isAllDone || cycleNeedsReset) && completedCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setResetDialogOpen(true)}
+                    className={cn(
+                      "inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest rounded-full px-3 py-1.5 transition-all",
+                      cycleNeedsReset
+                        ? "bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm animate-pulse"
+                        : "bg-white border border-brand-border text-brand-text hover:bg-brand-surface",
+                    )}
+                    aria-label="เริ่มรอบใหม่"
+                  >
+                    <RotateCcw size={11} />
+                    {cycleNeedsReset ? "เริ่มรอบใหม่" : "รีเซ็ตรอบ"}
+                  </button>
+                )}
+              </div>
             </div>
 
             <div className="flex gap-10 md:gap-16">
@@ -489,114 +574,203 @@ export default function DistributionTab() {
 
         <div className="xl:col-span-4 flex flex-col gap-6">
           <div className="sticky top-8 flex flex-col gap-6">
-            <Card variant="dark" padding="none" className="overflow-hidden">
-              <div className="p-6 border-b border-white/10 bg-white/5">
-                <div className="flex items-center gap-2 mb-1">
-                  <ArrowRightLeft size={14} className="text-blue-400" />
-                  <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-white/70">
-                    Execution Roadmap
-                  </h3>
-                </div>
-                <p className="text-[10px] text-white/40 leading-relaxed font-bold">
-                  สรุปยอดที่ต้องโอนเข้าแต่ละบัญชีเพื่อให้ถึงเป้าหมาย
-                </p>
-              </div>
-
-              <div className="p-6 flex flex-col gap-4">
-                {accountTransfers.map((transfer) => (
-                  <div
-                    key={transfer.id}
-                    className="flex flex-col gap-3 p-4 bg-white/5 rounded-2xl border border-white/5 hover:border-blue-500/30 transition-all"
-                  >
-                    <div className="flex justify-between items-start">
-                      <div className="min-w-0">
-                        <p className="text-[9px] font-black text-blue-400 uppercase tracking-widest mb-1 italic">
-                          Target Account
-                        </p>
-                        <h4 className="text-sm font-black text-white uppercase tracking-wider truncate">
-                          {transfer.accountName}
-                        </h4>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <p className="text-[9px] font-black text-white/40 uppercase tracking-widest mb-1">
-                          Total to Transfer
-                        </p>
-                        <p className="text-lg font-black font-mono text-emerald-400 tracking-tighter">
-                          {formatCurrency(transfer.total)}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-wrap gap-1.5 pt-3 border-t border-white/5">
-                      {transfer.items.map((item) => (
-                        <span
-                          key={item}
-                          className="text-[8px] font-bold text-white/40 bg-white/5 px-2 py-0.5 rounded uppercase tracking-wider"
-                        >
-                          {item}
-                        </span>
-                      ))}
-                    </div>
-
-                    <div className="mt-2 flex justify-end">
-                      <button
-                        type="button"
-                        onClick={() => handleCopy(transfer)}
-                        className={cn(
-                          "text-[8px] font-black flex items-center gap-1.5 uppercase tracking-widest transition-all px-3 py-1.5 rounded-lg",
-                          copiedId === transfer.id
-                            ? "bg-emerald-500/20 text-emerald-400"
-                            : "text-blue-400 hover:bg-blue-500/10 hover:text-white",
-                        )}
-                      >
-                        {copiedId === transfer.id ? <Check size={10} /> : <Copy size={10} />}
-                        {copiedId === transfer.id ? "COPIED" : "COPY DETAILS"}
-                      </button>
-                    </div>
-                  </div>
-                ))}
-
-                {accountTransfers.length === 0 && (
-                  <div className="py-10 text-center opacity-40">
-                    <AlertCircle size={24} className="mx-auto mb-3" />
-                    <p className="text-[10px] font-black uppercase tracking-widest">
-                      No mapping detected
-                    </p>
-                    <p className="text-[9px] font-medium mt-1">
-                      Please map allocations to accounts
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              <div className="p-6 bg-blue-600">
-                <div className="flex flex-col gap-4">
-                  <div className="flex justify-between items-center text-white">
-                    <span className="text-[10px] font-black uppercase tracking-widest opacity-80">
-                      Cycle Progress
-                    </span>
-                    <span className="text-[10px] font-black font-mono">
-                      {Math.round((completedCount / (totalCount || 1)) * 100)}%
-                    </span>
-                  </div>
-                  <div className="h-1.5 w-full bg-white/20 rounded-full overflow-hidden">
-                    <motion.div
-                      initial={{ width: 0 }}
-                      animate={{ width: `${(completedCount / (totalCount || 1)) * 100}%` }}
-                      className="h-full bg-white shadow-[0_0_12px_rgba(255,255,255,0.6)]"
-                    />
-                  </div>
-                  {isAllDone && (
-                    <div className="flex items-center gap-2 text-white bg-white/20 p-3 rounded-xl backdrop-blur-md">
-                      <Check size={16} />
-                      <span className="text-[10px] font-black uppercase tracking-widest">
-                        All Transfers Executed!
+            {/*
+              The right panel switches mode based on completion state:
+              - All done with mapped accounts → celebration card with stats
+              - In progress with mapped accounts → execution roadmap
+              - No mapping → soft hint card (not an error)
+            */}
+            {isAllDone ? (
+              <Card
+                variant="white"
+                padding="none"
+                className="overflow-hidden border-2 border-emerald-200 shadow-lg"
+              >
+                <div className="bg-gradient-to-br from-emerald-500 to-blue-600 p-6 text-white relative overflow-hidden">
+                  <div className="absolute top-0 right-0 -mr-8 -mt-8 w-32 h-32 bg-white/10 rounded-full" />
+                  <div className="absolute bottom-0 left-0 -ml-12 -mb-12 w-40 h-40 bg-white/5 rounded-full" />
+                  <div className="relative z-10">
+                    <div className="flex items-center gap-2 mb-2">
+                      <PartyPopper size={18} aria-hidden="true" />
+                      <span className="text-[10px] font-black uppercase tracking-[0.2em] opacity-90">
+                        เสร็จสิ้นรอบ
                       </span>
                     </div>
+                    <h3 className="text-2xl font-black tracking-tight mb-1">
+                      {formatThaiMonth(lastTransferCycle ?? currentCycle)}
+                    </h3>
+                    <p className="text-[11px] font-bold opacity-90 leading-relaxed">
+                      จัดสรรครบทั้ง {totalCount} รายการแล้ว 🎉
+                    </p>
+                  </div>
+                </div>
+
+                <div className="p-5 flex flex-col gap-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-black text-brand-muted uppercase tracking-widest">
+                      ยอดโอนรวม
+                    </span>
+                    <span className="text-lg font-black font-mono text-emerald-600">
+                      {formatCurrency(transferredThisCycle)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-black text-brand-muted uppercase tracking-widest">
+                      บัญชีปลายทาง
+                    </span>
+                    <span className="text-sm font-black text-brand-text">
+                      {accountTransfers.length} บัญชี
+                    </span>
+                  </div>
+
+                  {accountTransfers.length === 0 ? (
+                    <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 text-[10px] font-bold text-blue-700 leading-relaxed">
+                      💡 ตั้งค่าบัญชีปลายทางในแต่ละรายการเพื่อให้ระบบสร้าง roadmap
+                      สรุปยอดที่ต้องโอนเข้าบัญชีอัตโนมัติในรอบถัดไป
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const text = accountTransfers
+                          .map(
+                            (t) =>
+                              `${t.accountName}: ${formatCurrency(t.total)}\n  ${t.items.join(", ")}`,
+                          )
+                          .join("\n\n");
+                        void navigator.clipboard.writeText(text);
+                        setCopiedId("__all__");
+                        window.setTimeout(() => setCopiedId(null), 2000);
+                      }}
+                      className={cn(
+                        "w-full inline-flex items-center justify-center gap-2 text-xs font-black uppercase tracking-widest rounded-xl py-3 transition-all",
+                        copiedId === "__all__"
+                          ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                          : "bg-brand-bg text-brand-text border border-brand-border hover:bg-brand-text hover:text-white",
+                      )}
+                    >
+                      {copiedId === "__all__" ? <Check size={12} /> : <Copy size={12} />}
+                      {copiedId === "__all__" ? "คัดลอกแล้ว" : "คัดลอก roadmap ทั้งหมด"}
+                    </button>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => setResetDialogOpen(true)}
+                    className="w-full inline-flex items-center justify-center gap-2 text-xs font-black uppercase tracking-widest rounded-xl py-3 bg-emerald-600 text-white hover:bg-emerald-700 transition-colors shadow-sm"
+                  >
+                    <RotateCcw size={13} />
+                    เริ่มรอบ {formatThaiMonth(nextMonth(lastTransferCycle ?? currentCycle))}
+                  </button>
+                </div>
+              </Card>
+            ) : (
+              <Card variant="dark" padding="none" className="overflow-hidden">
+                <div className="p-6 border-b border-white/10 bg-white/5">
+                  <div className="flex items-center gap-2 mb-1">
+                    <ArrowRightLeft size={14} className="text-blue-400" />
+                    <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-white/70">
+                      Execution Roadmap
+                    </h3>
+                  </div>
+                  <p className="text-[10px] text-white/40 leading-relaxed font-bold">
+                    สรุปยอดที่ต้องโอนเข้าแต่ละบัญชีเพื่อให้ถึงเป้าหมาย
+                  </p>
+                </div>
+
+                <div className="p-6 flex flex-col gap-4">
+                  {accountTransfers.length === 0 ? (
+                    <div className="py-8 text-center">
+                      <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center mx-auto mb-3 text-blue-300">
+                        <Sparkles size={20} />
+                      </div>
+                      <p className="text-[11px] font-black uppercase tracking-widest text-white/80 mb-1">
+                        ยังไม่มีการจับคู่บัญชี
+                      </p>
+                      <p className="text-[10px] font-medium text-white/50 leading-relaxed max-w-[220px] mx-auto">
+                        เลือก "Destined Account" ของแต่ละรายการ เพื่อให้ระบบสรุปยอดที่ต้องโอนเข้าแต่ละบัญชี
+                      </p>
+                    </div>
+                  ) : (
+                    accountTransfers.map((transfer) => (
+                      <div
+                        key={transfer.id}
+                        className="flex flex-col gap-3 p-4 bg-white/5 rounded-2xl border border-white/5 hover:border-blue-500/30 transition-all"
+                      >
+                        <div className="flex justify-between items-start">
+                          <div className="min-w-0">
+                            <p className="text-[9px] font-black text-blue-400 uppercase tracking-widest mb-1 italic">
+                              Target Account
+                            </p>
+                            <h4 className="text-sm font-black text-white uppercase tracking-wider truncate">
+                              {transfer.accountName}
+                            </h4>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <p className="text-[9px] font-black text-white/40 uppercase tracking-widest mb-1">
+                              Total to Transfer
+                            </p>
+                            <p className="text-lg font-black font-mono text-emerald-400 tracking-tighter">
+                              {formatCurrency(transfer.total)}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-wrap gap-1.5 pt-3 border-t border-white/5">
+                          {transfer.items.map((item) => (
+                            <span
+                              key={item}
+                              className="text-[8px] font-bold text-white/40 bg-white/5 px-2 py-0.5 rounded uppercase tracking-wider"
+                            >
+                              {item}
+                            </span>
+                          ))}
+                        </div>
+
+                        <div className="mt-2 flex justify-end">
+                          <button
+                            type="button"
+                            onClick={() => handleCopy(transfer)}
+                            className={cn(
+                              "text-[8px] font-black flex items-center gap-1.5 uppercase tracking-widest transition-all px-3 py-1.5 rounded-lg",
+                              copiedId === transfer.id
+                                ? "bg-emerald-500/20 text-emerald-400"
+                                : "text-blue-400 hover:bg-blue-500/10 hover:text-white",
+                            )}
+                          >
+                            {copiedId === transfer.id ? <Check size={10} /> : <Copy size={10} />}
+                            {copiedId === transfer.id ? "COPIED" : "COPY DETAILS"}
+                          </button>
+                        </div>
+                      </div>
+                    ))
                   )}
                 </div>
-              </div>
-            </Card>
+
+                <div className="p-6 bg-blue-600">
+                  <div className="flex flex-col gap-4">
+                    <div className="flex justify-between items-center text-white">
+                      <span className="text-[10px] font-black uppercase tracking-widest opacity-80">
+                        Cycle Progress
+                      </span>
+                      <span className="text-[10px] font-black font-mono">
+                        {Math.round((completedCount / (totalCount || 1)) * 100)}%
+                      </span>
+                    </div>
+                    <div className="h-1.5 w-full bg-white/20 rounded-full overflow-hidden">
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: `${(completedCount / (totalCount || 1)) * 100}%` }}
+                        className="h-full bg-white shadow-[0_0_12px_rgba(255,255,255,0.6)]"
+                      />
+                    </div>
+                    <p className="text-[10px] text-white/60 font-bold text-center">
+                      {completedCount} / {totalCount} รายการ • รอบ {formatThaiMonth(currentCycle)}
+                    </p>
+                  </div>
+                </div>
+              </Card>
+            )}
           </div>
         </div>
       </div>
@@ -606,6 +780,15 @@ export default function DistributionTab() {
         allocation={confirmAllocation}
         onCancel={() => setConfirmId(null)}
         onConfirm={(note) => confirmId && performToggle(confirmId, note)}
+      />
+
+      <CycleResetDialog
+        open={resetDialogOpen}
+        fromMonth={lastTransferCycle ?? currentCycle}
+        toMonth={cycleNeedsReset ? currentCycle : nextMonth(currentCycle)}
+        completedCount={completedCount}
+        onCancel={() => setResetDialogOpen(false)}
+        onConfirm={handleResetCycle}
       />
 
       <AnimatePresence>
