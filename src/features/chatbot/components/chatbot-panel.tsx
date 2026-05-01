@@ -50,6 +50,14 @@ export function ChatbotPanel() {
     ]);
     setIsLoading(true);
 
+    const finalizeWithError = (message: string) => {
+      setMessages((prev) => {
+        const copy = [...prev];
+        copy[copy.length - 1] = { role: "assistant", text: message };
+        return copy;
+      });
+    };
+
     try {
       const res = await fetch("/api/chat", {
         method: "POST",
@@ -58,7 +66,32 @@ export function ChatbotPanel() {
       });
 
       if (!res.ok || !res.body) {
-        throw new Error("AI service unavailable");
+        // Try to surface the structured error payload from the route handler
+        // so the user sees an actionable hint (e.g. missing API key) rather
+        // than a generic "AI unavailable".
+        let detail: string | undefined;
+        let code: string | undefined;
+        try {
+          const payload = (await res.json()) as { error?: string; detail?: string };
+          code = payload.error;
+          detail = payload.detail;
+        } catch {
+          /* response wasn't JSON — fall through to generic message */
+        }
+
+        const userMessage =
+          code === "UNAUTHORIZED"
+            ? "เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่"
+            : code === "MISSING_API_KEY"
+              ? "ระบบ AI ยังไม่ได้ตั้งค่า: ผู้ดูแลต้องเพิ่ม GEMINI_API_KEY ใน .env.local แล้วรีสตาร์ท dev server"
+              : code === "INVALID_BODY"
+                ? `ข้อมูลที่ส่งไม่ถูกต้อง${detail ? ` (${detail})` : ""}`
+                : code === "AI_UNAVAILABLE"
+                  ? `บริการ AI ไม่พร้อมใช้งานชั่วคราว${detail ? ` — ${detail}` : ""}`
+                  : "ขออภัย เกิดข้อผิดพลาดในการเชื่อมต่อระบบ AI กรุณาลองใหม่ภายหลัง";
+
+        finalizeWithError(userMessage);
+        return;
       }
 
       const reader = res.body.getReader();
@@ -76,15 +109,10 @@ export function ChatbotPanel() {
         });
       }
     } catch (err) {
-      console.error(err);
-      setMessages((prev) => {
-        const copy = [...prev];
-        copy[copy.length - 1] = {
-          role: "assistant",
-          text: "ขออภัย เกิดข้อผิดพลาดในการเชื่อมต่อระบบ AI กรุณาลองใหม่ภายหลัง",
-        };
-        return copy;
-      });
+      // Network failure (offline, DNS, etc.) — log so devs can see it but
+      // present a friendly message to the user.
+      console.warn("[chatbot] network error:", err);
+      finalizeWithError("ขออภัย เชื่อมต่อกับเซิร์ฟเวอร์ไม่ได้ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่");
     } finally {
       setIsLoading(false);
     }

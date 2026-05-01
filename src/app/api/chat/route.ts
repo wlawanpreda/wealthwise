@@ -57,25 +57,50 @@ function buildContext(
   ].join("\n");
 }
 
+// Structured error codes the client can map to a user-facing message.
+type ChatErrorCode =
+  | "UNAUTHORIZED"
+  | "INVALID_JSON"
+  | "INVALID_BODY"
+  | "MISSING_API_KEY"
+  | "AI_UNAVAILABLE";
+
+function errorResponse(code: ChatErrorCode, status: number, detail?: string) {
+  return NextResponse.json({ error: code, detail }, { status });
+}
+
 export async function POST(req: Request) {
   try {
     await requireSessionUser();
   } catch {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return errorResponse("UNAUTHORIZED", 401);
   }
 
   let body: unknown;
   try {
     body = await req.json();
   } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+    return errorResponse("INVALID_JSON", 400);
   }
   const parsed = bodySchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+    const detail = parsed.error.issues
+      .slice(0, 3)
+      .map((i) => `${i.path.join(".") || "(root)"}: ${i.message}`)
+      .join("; ");
+    return errorResponse("INVALID_BODY", 400, detail);
   }
 
-  const env = getServerEnv();
+  // Surface a config error explicitly instead of letting getServerEnv throw
+  // a generic 500. The client maps MISSING_API_KEY to a setup hint.
+  let env: ReturnType<typeof getServerEnv>;
+  try {
+    env = getServerEnv();
+  } catch (err) {
+    console.error("[/api/chat] env error:", err);
+    return errorResponse("MISSING_API_KEY", 503, "GEMINI_API_KEY is not set on the server.");
+  }
+
   const ai = new GoogleGenAI({ apiKey: env.GEMINI_API_KEY });
   const context = buildContext(parsed.data.plan, parsed.data.pillars);
   const userText = `${context}\n\nคำถามจากผู้ใช้: ${parsed.data.message}`;
@@ -97,7 +122,7 @@ export async function POST(req: Request) {
             }
           }
         } catch (err) {
-          console.error("Gemini stream error:", err);
+          console.error("[/api/chat] stream error:", err);
           controller.enqueue(encoder.encode("\n\nเกิดข้อผิดพลาดระหว่างวิเคราะห์ข้อมูล"));
         } finally {
           controller.close();
@@ -112,7 +137,8 @@ export async function POST(req: Request) {
       },
     });
   } catch (err) {
-    console.error("Gemini API error:", err);
-    return NextResponse.json({ error: "AI service unavailable" }, { status: 503 });
+    console.error("[/api/chat] Gemini API error:", err);
+    const detail = err instanceof Error ? err.message : undefined;
+    return errorResponse("AI_UNAVAILABLE", 503, detail);
   }
 }
