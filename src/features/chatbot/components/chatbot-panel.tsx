@@ -3,7 +3,8 @@
 import { cn } from "@/lib/utils";
 import { useChatbotStore, useChatbotView } from "@/stores/chatbot-store";
 import { useDerivedFinancials, useFinancialPlanSnapshot } from "@/stores/financial-store";
-import { Loader2, Maximize2, Send, Sparkles } from "lucide-react";
+import { usePinnedSnippetsStore } from "@/stores/pinned-snippets-store";
+import { Bookmark, Loader2, Maximize2, Send, Sparkles } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import * as React from "react";
 import ReactMarkdown from "react-markdown";
@@ -32,6 +33,9 @@ export function ChatbotPanel({ variant = "compact" }: Props) {
   const setInput = useChatbotStore((s) => s.setInput);
   const setExpanded = useChatbotStore((s) => s.setExpanded);
   const send = useChatbotStore((s) => s.send);
+  const pin = usePinnedSnippetsStore((s) => s.pin);
+  const unpinByText = usePinnedSnippetsStore((s) => s.unpinByText);
+  const isPinned = usePinnedSnippetsStore((s) => s.isPinned);
   const scrollRef = React.useRef<HTMLDivElement>(null);
 
   const isExpanded = variant === "expanded";
@@ -84,7 +88,7 @@ export function ChatbotPanel({ variant = "compact" }: Props) {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               className={cn(
-                "rounded-xl border leading-relaxed",
+                "rounded-xl border leading-relaxed group/msg",
                 isExpanded ? "p-4 text-sm" : "p-3 text-[13px]",
                 msg.role === "user"
                   ? cn(
@@ -97,14 +101,60 @@ export function ChatbotPanel({ variant = "compact" }: Props) {
               )}
             >
               {msg.role === "assistant" && (
-                <p
+                <div
                   className={cn(
-                    "font-bold text-blue-700 uppercase tracking-widest",
-                    isExpanded ? "text-[11px] mb-2" : "text-[10px] mb-1",
+                    "flex items-center justify-between gap-2",
+                    isExpanded ? "mb-2" : "mb-1",
                   )}
                 >
-                  สถาปนิกการเงิน
-                </p>
+                  <p
+                    className={cn(
+                      "font-bold text-blue-700 uppercase tracking-widest",
+                      isExpanded ? "text-[11px]" : "text-[10px]",
+                    )}
+                  >
+                    สถาปนิกการเงิน
+                  </p>
+                  {(() => {
+                    // Pin only after the message has actual content. While the
+                    // last assistant bubble is still streaming, hide the button
+                    // to avoid pinning a partial answer.
+                    const isStillStreaming =
+                      isLoading && i === messages.length - 1 && msg.text.length === 0;
+                    if (!msg.text || isStillStreaming) return null;
+                    const pinned = isPinned(msg.text);
+                    // Find the user question that prompted this answer (the
+                    // most recent user message before this assistant message).
+                    const question = (() => {
+                      for (let j = i - 1; j >= 0; j--) {
+                        const candidate = messages[j];
+                        if (candidate?.role === "user") return candidate.text;
+                      }
+                      return undefined;
+                    })();
+                    return (
+                      <button
+                        type="button"
+                        onClick={() => (pinned ? unpinByText(msg.text) : pin(msg.text, question))}
+                        className={cn(
+                          "shrink-0 inline-flex items-center justify-center rounded-md transition-all",
+                          isExpanded ? "p-1.5" : "p-1",
+                          pinned
+                            ? "text-blue-600 hover:bg-blue-50"
+                            : "text-brand-muted opacity-0 group-hover/msg:opacity-100 focus-visible:opacity-100 hover:text-blue-600 hover:bg-blue-50",
+                        )}
+                        aria-label={pinned ? "เลิกปักหมุด" : "ปักหมุดคำตอบ"}
+                        title={pinned ? "เลิกปักหมุด" : "ปักหมุดคำตอบ"}
+                      >
+                        <Bookmark
+                          size={isExpanded ? 13 : 11}
+                          className={pinned ? "fill-blue-600" : ""}
+                          aria-hidden="true"
+                        />
+                      </button>
+                    );
+                  })()}
+                </div>
               )}
               <div className={cn(msg.role === "user" ? "text-white" : "text-brand-text")}>
                 {msg.text ? (
